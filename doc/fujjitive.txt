@@ -1,60 +1,60 @@
-*fugitive.txt*  A Git wrapper so awesome, it should be illegal
+*fujjitive.txt*  A Jujutsu (jj) wrapper so awesome, it should be illegal
 
 Author:  Tim Pope <http://tpo.pe/>
 License: Same terms as Vim itself (see |license|)
 
 This plugin is only available if 'compatible' is not set.
 
-INTRODUCTION                                    *fugitive*
+INTRODUCTION                                    *fujjitive*
 
-Whenever you edit a file from a Git repository, a set of commands is defined
-that serve as a gateway to Git.
+Whenever you edit a file from a JJ repository, a set of commands is defined
+that serve as a gateway to JJ.
 
-COMMANDS                                        *fugitive-commands*
+COMMANDS                                        *fujjitive-commands*
 
 These commands are local to the buffers in which they work (generally, buffers
 that are part of Git repositories).
 
-                                                *fugitive-:G*
-:G [args]               Same as :Git, but two characters shorter.
+                                                *fujjitive-:G*
+:J [args]               Same as :JJ, but two characters shorter.
 
-                                                *fugitive-summary*
-:Git                    With no arguments, bring up a summary window vaguely
-                        akin to git-status.  If a summary window is already
+                                                *fujjitive-summary*
+:JJ                    With no arguments, bring up a summary window vaguely
+                        akin to jj status.  If a summary window is already
                         open for the current repository, it is focused
-                        instead.  Press g?  or see |fugitive-maps| for usage.
+                        instead.  Press g?  or see |fujjitive-maps| for usage.
 
-                                                *:Git*
-:Git {args}             Run an arbitrary git command and display any output.
+                                                *:JJ*
+:JJ {args}             Run an arbitrary jj command and display any output.
                         On UNIX this uses a pty and on other platforms it uses
                         a pipe, which will cause some behavior differences
                         such as the absence of progress bars.  Any file the
                         command edits (for example, a commit message) will be
                         loaded into a split window.  Closing that window will
-                        resume running the command.  A few Git subcommands
+                        resume running the command.  A few JJ subcommands
                         have different behavior; these are documented below.
 
-                                                *:Git!*
-:Git! {args}            Run an arbitrary git command in the background and
+                                                *:JJ!*
+:JJ! {args}            Run an arbitrary jj command in the background and
                         stream the output to the preview window.  Requires a
                         Vim with |setbufline()|.  Press CTRL-D during an
-                        interactive :Git invocation to switch to this mode
+                        interactive :JJ invocation to switch to this mode
                         retroactively.
 
-                                                *:Git_--paginate* *:Git_-p*
-:Git --paginate {args}  Run an arbitrary git command, capture output to a temp
-:Git -p {args}          file, and |:split| that temp file.  Pass ++curwin as
+                                                *:JJ_--paginate* *:JJ_-p*
+:JJ --paginate {args}  Run an arbitrary jj command, capture output to a temp
+:JJ -p {args}          file, and |:split| that temp file.  Pass ++curwin as
                         the first argument to |:edit| the temp file instead.
                         A temp file is always used for commands like diff and
                         log that typically uses a pager, and for any command
-                        that has the pager.<cmd> Git configuration option set.
+                        that has the pager.<cmd> JJ configuration option set.
 
 :{range}Git! --paginate {args}
-:{range}Git! -p {args}  Run an arbitrary git command, and insert the output
+:{range}Git! -p {args}  Run an arbitrary jj command, and insert the output
                         after {range} in the current buffer.
 
-                                                *:Git_blame*
-:Git blame [flags]      Run git-blame [flags] on the current file and open the
+                                                *:JJ_blame*
+:JJ blame [flags]      Run jj file annotate [flags] on the current file and open the
                         results in a scroll-bound vertical split.  The
                         following maps, which work on the cursor line commit
                         where sensible, are provided:
@@ -72,7 +72,7 @@ that are part of Git repositories).
                         p     jump to patch or blob in preview window
                         -     reblame at commit
 
-                        The maps |fugitive_P| and |fugitive_~| are also
+                        The maps |fujjitive_P| and |fujjitive_~| are also
                         supported to reblame on a parent commit, but this is
                         inherently fragile, as the line being blamed will no
                         longer exist.  The preferred alternative is to use
@@ -82,30 +82,30 @@ that are part of Git repositories).
                         gives you additional context as to why the line
                         changed.
 
-                                                *g:fugitive_dynamic_colors*
+                                                *g:fujjitive_dynamic_colors*
                         In the GUI or a 256 color terminal, commit hashes will
                         be highlighted in different colors. To disable this:
 >
-                        let g:fugitive_dynamic_colors = 0
+                        let g:fujjitive_dynamic_colors = 0
 <
 :[range]Git blame [...] If a range is given, just that part of the file will
-:Git blame [...] {file} be blamed, and a horizontal split without
+:JJ blame [...] {file} be blamed, and a horizontal split without
                         scrollbinding is used.  You can also give an arbitrary
                         filename.
 
-                                                *:Git_difftool*
-:Git[!] difftool [args] Invoke `git diff [args]` and load the changes into the
+                                                *:JJ_difftool*
+:JJ[!] difftool [args] Invoke `jj diff [args]` and load the changes into the
                         quickfix list.  Each changed hunk gets a separate
                         quickfix entry unless you pass an option like
                         --name-only or --name-status.  Jumps to the first
                         change unless [!] is given.
 
-:Git difftool -y [args] Invoke `git diff [args]`, open each changed file in a
+:JJ difftool -y [args] Invoke `jj diff [args]`, open each changed file in a
                         new tab, and invoke |:Gdiffsplit!| against the
                         appropriate commit.
 
-                                                *:Git_mergetool*
-:Git mergetool [args]   Like |:Git_difftool|, but target merge conflicts.
+                                                *:JJ_mergetool*
+:JJ mergetool [args]   Like |:Git_difftool|, but target merge conflicts.
 
 Wrappers for Vim built-ins ~
 
@@ -113,9 +113,9 @@ These all directly map onto a built-in Vim command, and generally have names
 that prepend "G" to the command they are wrapping.  For example, :Ggrep is G
 plus |:grep|.
 
-                                                *:Ggrep* *:Git_grep*
-:Ggrep[!] [args]        An approximation of |:grep|[!] with git-grep as
-:Git[!] grep -O [args]  'grepprg'.
+                                                *:Ggrep* *:JJ_grep*
+:Ggrep[!] [args]        An approximation of |:grep|[!] with jj grep as
+:JJ[!] grep -O [args]  'grepprg'.
 
 :Ggrep[!] --quiet [args]
 :Ggrep[!] -q [args]     Like |:Ggrep|, but instead of displaying output, open
@@ -126,16 +126,16 @@ plus |:grep|.
 :0Git[!] grep -O [args]
 
                                                  *:Gclog*
-:Gclog[!] [args]        Use git-log [args] to load the commit history into the
+:Gclog[!] [args]        Use jj log [args] to load the commit history into the
                         |quickfix| list.  Jumps to the first commit unless [!]
                         is given.  This command wraps |:cfile|.
 
                         The quickfix list can be awkward for many use cases
                         and exhibits extremely poor performance with larger
-                        data sets.  Consider using |:Git| log --oneline
+                        data sets.  Consider using |:JJ| log --oneline
                         instead.
 
-:{range}Gclog[!] [args] Use git-log -L to load previous revisions of the given
+:{range}Gclog[!] [args] Use jj log -L to load previous revisions of the given
                         range of the current file into the |quickfix| list.
                         The cursor is positioned on the first line of the
                         first diff hunk for each commit.  Use :0Gclog to
@@ -151,33 +151,33 @@ plus |:grep|.
                                                 *:Glcd*
 :Glcd [directory]       |:lcd| relative to the repository.
 
-                                                *:Gedit* *fugitive-:Ge*
-:Gedit [object]         |:edit| a |fugitive-object|.
+                                                *:Gedit* *fujjitive-:Ge*
+:Gedit [object]         |:edit| a |fujjitive-object|.
 
                                                 *:Gsplit*
-:Gsplit [object]        |:split| a |fugitive-object|.
+:Gsplit [object]        |:split| a |fujjitive-object|.
 
                                                 *:Gvsplit*
-:Gvsplit [object]       |:vsplit| a |fugitive-object|.
+:Gvsplit [object]       |:vsplit| a |fujjitive-object|.
 
                                                 *:Gtabedit*
-:Gtabedit [object]      |:tabedit| a |fugitive-object|.
+:Gtabedit [object]      |:tabedit| a |fujjitive-object|.
 
                                                 *:Gpedit*
-:Gpedit [object]        |:pedit| a |fugitive-object|.
+:Gpedit [object]        |:pedit| a |fujjitive-object|.
 
                                                 *:Gdrop*
-:Gdrop [object]         |:drop| a |fugitive-object|.
+:Gdrop [object]         |:drop| a |fujjitive-object|.
 
-                                                *:Gread* *fugitive-:Gr*
-:Gread [object]         Empty the buffer and |:read| a |fugitive-object|.
+                                                *:Gread* *fujjitive-:Gr*
+:Gread [object]         Empty the buffer and |:read| a |fujjitive-object|.
                         When the argument is omitted, this is similar to
                         git-checkout on a work tree file or git-add on a stage
                         file, but without writing anything to disk.
 
-:{range}Gread [object]  |:read| in a |fugitive-object| after {range}.
+:{range}Gread [object]  |:read| in a |fujjitive-object| after {range}.
 
-                                                *:Gwrite* *fugitive-:Gw*
+                                                *:Gwrite* *fujjitive-:Gw*
 :Gwrite                 Write to the current file's path and stage the results.
                         When run in a work tree file, it is effectively git
                         add.  Elsewhere, it is effectively git-checkout.  A
@@ -259,7 +259,7 @@ not :Gmove.
                         supported by installing rhubarb.vim, available at
                         <https://github.com/tpope/vim-rhubarb>.
 
-:GBrowse {object}       Like :GBrowse, but for a given |fugitive-object|.
+:GBrowse {object}       Like :GBrowse, but for a given |fujjitive-object|.
 
 :{range}GBrowse [args]  Appends an anchor to the URL that emphasizes the
                         selected lines. This also forces the URL to include a
@@ -276,29 +276,29 @@ not :Gmove.
 :[range]GBrowse! [args] Like :GBrowse, but put the URL on the clipboard rather
                         than opening it.
 
-MAPS                                            *fugitive-maps*
+MAPS                                            *fujjitive-maps*
 
-These maps are available in both the |fugitive-summary| buffer and Fugitive
+These maps are available in both the |fujjitive-summary| buffer and Fujjitive
 object buffers, although not all maps make sense in all buffers.  Mappings
 that operate on the file or hunk under the cursor are generally available in
 visual mode to operate on multiple files or partial hunks.
 
-                                                *fugitive-staging-maps*
-Staging/unstaging maps ~
+                                                *fujjitive-splitting-maps*
+Staging/unsplitting maps ~
 
-                                                *fugitive_s*
+                                                *fujjitive_s*
 s                       Stage (add) the file or hunk under the cursor.
 
-                                                *fugitive_u*
+                                                *fujjitive_u*
 u                       Unstage (reset) the file or hunk under the cursor.
 
-                                                *fugitive_-*
+                                                *fujjitive_-*
 -                       Stage or unstage the file or hunk under the cursor.
 
-                                                *fugitive_U*
+                                                *fujjitive_U*
 U                       Unstage everything.
 
-                                                *fugitive_X*
+                                                *fujjitive_X*
 X                       Discard the change under the cursor.  This uses
                         `checkout` or `clean` under the hood.  A command is
                         echoed that shows how to undo the change.  Consult
@@ -306,161 +306,161 @@ X                       Discard the change under the cursor.  This uses
                         use 2X to call `checkout --ours` or 3X to call
                         `checkout --theirs` .
 
-                                                *fugitive_=*
+                                                *fujjitive_=*
 =                       Toggle an inline diff of the file under the cursor.
 
-                                                *fugitive_>*
+                                                *fujjitive_>*
 >                       Insert an inline diff of the file under the cursor.
 
-                                                *fugitive_<*
+                                                *fujjitive_<*
 <                       Remove the inline diff of the file under the cursor.
 
-                                                *fugitive_gI*
-gI                      Open .git/info/exclude in a split and add the file
+                                                *fujjitive_gI*
+gI                      Open .jj/info/exclude in a split and add the file
                         under the cursor.  Use a count to open .gitignore.
 
-                                                *fugitive_I*
-I                       Invoke |:Git| add --patch or reset --patch on the file
+                                                *fujjitive_I*
+I                       Invoke |:JJ| add --patch or reset --patch on the file
 P                       under the cursor. On untracked files, this instead
-                        calls |:Git| add --intent-to-add.
+                        calls |:JJ| add --intent-to-add.
 
-                                                *fugitive_d*
+                                                *fujjitive_d*
 Diff maps ~
-                                                *fugitive_dp*
-dp                      Invoke |:Git| diff on the file under the cursor.
+                                                *fujjitive_dp*
+dp                      Invoke |:JJ| diff on the file under the cursor.
                         Deprecated in favor of inline diffs.
 
-                                                *fugitive_dd*
+                                                *fujjitive_dd*
 dd                      Perform a |:Gdiffsplit| on the file under the cursor.
 
-                                                *fugitive_dv*
+                                                *fujjitive_dv*
 dv                      Perform a |:Gvdiffsplit| on the file under the cursor.
 
-                                                *fugitive_ds* *fugitive_dh*
+                                                *fujjitive_ds* *fujjitive_dh*
 ds                      Perform a |:Ghdiffsplit| on the file under the cursor.
 dh
 
-                                                *fugitive_dq*
+                                                *fujjitive_dq*
 dq                      Close all but the currently focused diff buffer, and
                         invoke |:diffoff|!.
 
-                                                *fugitive_d?*
+                                                *fujjitive_d?*
 d?                      Show this help.
 
-                                                *fugitive-navigation-maps*
+                                                *fujjitive-navigation-maps*
 Navigation maps ~
 
-                                                *fugitive_<CR>*
-<CR>                    Open the file or |fugitive-object| under the cursor.
+                                                *fujjitive_<CR>*
+<CR>                    Open the file or |fujjitive-object| under the cursor.
                         In a blob, this and similar maps jump to the patch
                         from the diff where this was added, or where it was
                         removed if a count was given.  If the line is still in
                         the work tree version, passing a count takes you to
                         it.
 
-                                                *fugitive_o*
-o                       Open the file or |fugitive-object| under the cursor in
+                                                *fujjitive_o*
+o                       Open the file or |fujjitive-object| under the cursor in
                         a new split.
 
-                                                *fugitive_gO*
-gO                      Open the file or |fugitive-object| under the cursor in
+                                                *fujjitive_gO*
+gO                      Open the file or |fujjitive-object| under the cursor in
                         a new vertical split.
 
-                                                *fugitive_O*
-O                       Open the file or |fugitive-object| under the cursor in
+                                                *fujjitive_O*
+O                       Open the file or |fujjitive-object| under the cursor in
                         a new tab.
 
-                                                *fugitive_p*
-p                       Open the file or |fugitive-object| under the cursor in
+                                                *fujjitive_p*
+p                       Open the file or |fujjitive-object| under the cursor in
                         a preview window.  In the status buffer, 1p is
                         required to bypass the legacy usage instructions.
 
-                                                *fugitive_~*
+                                                *fujjitive_~*
 ~                       Open the current file in the [count]th first ancestor.
 
-                                                *fugitive_P*
+                                                *fujjitive_P*
 P                       Open the current file in the [count]th parent.
                         Experimental:  In the "Unpushed" section of the status
                         buffer, this will populate the command line with a
-                        ":Git push" command for the commit under the cursor.
+                        ":JJ push" command for the commit under the cursor.
 
-                                                *fugitive_C*
+                                                *fujjitive_C*
 C                       Open the commit containing the current file.
 
-                                                *fugitive_CTRL-P* *fugitive_(*
+                                                *fujjitive_CTRL-P* *fujjitive_(*
 (                       Jump to the previous file, hunk, or revision.
 
-                                                *fugitive_CTRL-N* *fugitive_)*
+                                                *fujjitive_CTRL-N* *fujjitive_)*
 )                       Jump to the next file, hunk, or revision.
 
-                                                *fugitive_[c*
+                                                *fujjitive_[c*
 [c                      Jump to previous hunk, expanding inline diffs
                         automatically.  (This shadows the Vim built-in |[c|
                         that provides a similar operation in |diff| mode.)
 
-                                                *fugitive_]c*
+                                                *fujjitive_]c*
 ]c                      Jump to next hunk, expanding inline diffs
                         automatically.  (This shadows the Vim built-in |]c|
                         that provides a similar operation in |diff| mode.)
 
-                                                *fugitive_[/* *fugitive_[m*
+                                                *fujjitive_[/* *fujjitive_[m*
 [/                      Jump to previous file, collapsing inline diffs
 [m                      automatically.  (Mnemonic: "/" appears in filenames,
                         "m" appears in "filenames".)
 
-                                                *fugitive_]/* *fugitive_]m*
+                                                *fujjitive_]/* *fujjitive_]m*
 ]/                      Jump to next file, collapsing inline diffs
 ]m                      automatically.  (Mnemonic: "/" appears in filenames,
                         "m" appears in "filenames".)
 
-                                                *fugitive_i*
+                                                *fujjitive_i*
 i                       Jump to the next file or hunk, expanding inline diffs
                         automatically.
 
-                                                *fugitive_[[*
+                                                *fujjitive_[[*
 [[                      Jump [count] sections backward.
 
-                                                *fugitive_]]*
+                                                *fujjitive_]]*
 ]]                      Jump [count] sections forward.
 
-                                                *fugitive_[]*
+                                                *fujjitive_[]*
 []                      Jump [count] section ends backward.
 
-                                                *fugitive_][*
+                                                *fujjitive_][*
 ][                      Jump [count] section ends forward.
 
-                                                *fugitive_star*
+                                                *fujjitive_star*
 *                       On the first column of a + or - diff line, search for
                         the corresponding - or + line.  Otherwise, defer to
                         built-in |star|.
 
-                                                *fugitive_#*
+                                                *fujjitive_#*
 #                       Same as "*", but search backward.
 
-                                                *fugitive_gu*
-gu                      Jump to file [count] in the "Untracked" or "Unstaged"
+                                                *fujjitive_gu*
+gu                      Jump to file [count] in the "Untracked" or "Unsplit"
                         section.
 
-                                                *fugitive_gU*
-gU                      Jump to file [count] in the "Unstaged" section.
+                                                *fujjitive_gU*
+gU                      Jump to file [count] in the "Unsplit" section.
 
-                                                *fugitive_gs*
+                                                *fujjitive_gs*
 gs                      Jump to file [count] in the "Staged" section.
 
-                                                *fugitive_gp*
+                                                *fujjitive_gp*
 gp                      Jump to file [count] in the "Unpushed" section.
 
-                                                *fugitive_gP*
+                                                *fujjitive_gP*
 gP                      Jump to file [count] in the "Unpulled" section.
 
-                                                *fugitive_gr*
+                                                *fujjitive_gr*
 gr                      Jump to file [count] in the "Rebasing" section.
 
-                                                *fugitive_gi*
-gi                      Open .git/info/exclude in a split.  Use a count to
+                                                *fujjitive_gi*
+gi                      Open .jj/info/exclude in a split.  Use a count to
                         open .gitignore.
 
-                                                *fugitive_c*
+                                                *fujjitive_c*
 Commit maps ~
 
 cc                      Create a commit.
@@ -493,35 +493,35 @@ cS                      Create a `squash!` commit for the commit under the
 cn                      Create a `squash!` commit for the commit under the
 (formerly cA)           cursor and edit the message.
 
-c<Space>                Populate command line with ":Git commit ".
+c<Space>                Populate command line with ":JJ commit ".
 
-                                                *fugitive_cr*
+                                                *fujjitive_cr*
 crc                     Revert the commit under the cursor.
 
 crn                     Revert the commit under the cursor in the index and
                         work tree, but do not actually commit the changes.
 
-cr<Space>               Populate command line with ":Git revert ".
+cr<Space>               Populate command line with ":JJ revert ".
 
-                                                *fugitive_cm*
-cm<Space>               Populate command line with ":Git merge ".
+                                                *fujjitive_cm*
+cm<Space>               Populate command line with ":JJ merge ".
 
 c?                      Show this help.
 
-                                                *fugitive_cb*
-                                                *fugitive_co*
+                                                *fujjitive_cb*
+                                                *fujjitive_co*
 Checkout/branch maps ~
 
 coo                     Check out the commit under the cursor.
 
-cb<Space>               Populate command line with ":Git branch ".
+cb<Space>               Populate command line with ":JJ branch ".
 
-co<Space>               Populate command line with ":Git checkout ".
+co<Space>               Populate command line with ":JJ checkout ".
 
 cb?                     Show this help.
 co?
 
-                                                *fugitive_cz*
+                                                *fujjitive_cz*
 Stash maps ~
 
 czz                     Push stash.  Pass a [count] of 1 to add
@@ -542,11 +542,11 @@ czP                     Pop topmost stash, or stash@{count}.
 czp                     Pop topmost stash, or stash@{count}, preserving the
                         index.
 
-cz<Space>               Populate command line with ":Git stash ".
+cz<Space>               Populate command line with ":JJ stash ".
 
 cz?                     Show this help.
 
-                                                *fugitive_r*
+                                                *fujjitive_r*
 Rebase maps ~
 
 ri                      Perform an interactive rebase.  Uses ancestor of
@@ -578,42 +578,42 @@ rm                      Perform an interactive rebase with the commit under
 rd                      Perform an interactive rebase with the commit under
                         the cursor set to `drop`.
 
-r<Space>                Populate command line with ":Git rebase ".
+r<Space>                Populate command line with ":JJ rebase ".
 
 r?                      Show this help.
 
-                                                *fugitive-misc-maps*
+                                                *fujjitive-misc-maps*
 Miscellaneous maps ~
 
-                                                *fugitive_gq* *fugitive_q*
+                                                *fujjitive_gq* *fujjitive_q*
 gq                      Close the status buffer.
 
-                                                *fugitive_.*
+                                                *fujjitive_.*
 .                       Start a |:| command line with the file under the
                         cursor prepopulated.
 
-                                                *fugitive_g?*
-g?                      Show help for |fugitive-maps|.
+                                                *fujjitive_g?*
+g?                      Show help for |fujjitive-maps|.
 
-                                                *fugitive-global-maps*
+                                                *fujjitive-global-maps*
 Global maps ~
 
-                                                *fugitive_c_CTRL-R_CTRL-G*
+                                                *fujjitive_c_CTRL-R_CTRL-G*
 <C-R><C-G>              On the command line, recall the path to the current
-                        |fugitive-object| (that is, a representation of the
+                        |fujjitive-object| (that is, a representation of the
                         object recognized by |:Gedit|).
 
-                                                *fugitive_y_CTRL-G*
-["x]y<C-G>              Yank the path to the current |fugitive-object|.
+                                                *fujjitive_y_CTRL-G*
+["x]y<C-G>              Yank the path to the current |fujjitive-object|.
 
-                                                *g:fugitive_no_maps*
-Global maps can be disabled with the g:fugitive_no_maps option.
+                                                *g:fujjitive_no_maps*
+Global maps can be disabled with the g:fujjitive_no_maps option.
 >
-        let g:fugitive_no_maps = 1
+        let g:fujjitive_no_maps = 1
 <
-SPECIFYING OBJECTS                      *fugitive-object* *fugitive-revision*
+SPECIFYING OBJECTS                      *fujjitive-object* *fujjitive-revision*
 
-Fugitive objects are either work tree files or Git revisions as defined in the
+Fujjitive objects are either work tree files or Git revisions as defined in the
 "SPECIFYING REVISIONS" section in the git-rev-parse man page, with expansions
 inspired by |cmdline-special| layered on top.  For commands that accept an
 optional object, the default is the file in the index for work tree files and
@@ -638,72 +638,72 @@ Makefile        The file named Makefile in the work tree
 !               The commit owning the current file
 !:Makefile      The file named Makefile in the commit owning the current file
 !3^2            The second parent of the commit owning buffer #3
-.git/config     The repo config file
-:               The |fugitive-summary| buffer
--               A temp file containing the last |:Git| invocation's output
+.jj/config     The repo config file
+:               The |fujjitive-summary| buffer
+-               A temp file containing the last |:JJ| invocation's output
 <cfile>         The file or commit under the cursor
 
-STATUSLINE                                      *fugitive-statusline*
+STATUSLINE                                      *fujjitive-statusline*
 
-                                *FugitiveStatusline()* *fugitive#statusline()*
-Add %{FugitiveStatusline()} to your statusline to get an indicator including
+                                *FujjitiveStatusline()* *fujjitive#statusline()*
+Add %{FujjitiveStatusline()} to your statusline to get an indicator including
 the current branch and the currently edited file's commit.  If you don't have
 a statusline, this one matches the default when 'ruler' is set:
 >
-        set statusline=%<%f\ %h%m%r%{FugitiveStatusline()}%=%-14.(%l,%c%V%)\ %P
+        set statusline=%<%f\ %h%m%r%{FujjitiveStatusline()}%=%-14.(%l,%c%V%)\ %P
 <
-AUTOCOMMANDS                                    *fugitive-autocommands*
+AUTOCOMMANDS                                    *fujjitive-autocommands*
 
 A handful of |User| |autocommands| are provided to allow extending and
-overriding Fugitive behaviors.  Example usage:
+overriding Fujjitive behaviors.  Example usage:
 >
-        autocmd User FugitiveBlob,FugitiveStageBlob call s:BlobOverrides()
+        autocmd User FujjitiveBlob,FujjitiveStageBlob call s:BlobOverrides()
 <
-                                                *User_FugitiveTag*
-FugitiveTag             After loading a tag object.
+                                                *User_FujjitiveTag*
+FujjitiveTag             After loading a tag object.
 
-                                                *User_FugitiveCommit*
-FugitiveCommit          After loading a commit object.
+                                                *User_FujjitiveCommit*
+FujjitiveCommit          After loading a commit object.
 
-                                                *User_FugitiveTree*
-FugitiveTree            After loading a tree (directory) object.
+                                                *User_FujjitiveTree*
+FujjitiveTree            After loading a tree (directory) object.
 
-                                                *User_FugitiveBlob*
-FugitiveBlob            After loading a committed blob (file) object.
+                                                *User_FujjitiveBlob*
+FujjitiveBlob            After loading a committed blob (file) object.
 
-                                                *User_FugitiveObject*
-FugitiveObject          After loading any of the 4 above buffer types.
+                                                *User_FujjitiveObject*
+FujjitiveObject          After loading any of the 4 above buffer types.
 
-                                                *User_FugitiveStageBlob*
-FugitiveStageBlob       After loading a staged blob (file) object.  These
+                                                *User_FujjitiveStageBlob*
+FujjitiveStageBlob       After loading a split blob (file) object.  These
                         buffers are 'modifiable' and oftentimes don't want the
                         same behavior as the other buffer types.
 
-                                                *User_FugitiveIndex*
-FugitiveIndex           After loading the |fugitive-summary| buffer.
+                                                *User_FujjitiveIndex*
+FujjitiveIndex           After loading the |fujjitive-summary| buffer.
 
-                                                *User_FugitivePager*
-FugitivePager           After loading a temp file created by a command like
-                        :Git --paginate or :Git blame.
+                                                *User_FujjitivePager*
+FujjitivePager           After loading a temp file created by a command like
+                        :JJ --paginate or :JJ blame.
 
-                                                *User_FugitiveEditor*
-FugitiveEditor          After a :Git command (e.g., :Git commit) edits a file
+                                                *User_FujjitiveEditor*
+FujjitiveEditor          After a :JJ command (e.g., :JJ commit) edits a file
                         (e.g., the commit message).
 
-                                                *User_FugitiveChanged*
-FugitiveChanged         After any event which can potentially change the
-                        repository, for example, any invocation of |:Git|.
+                                                *User_FujjitiveChanged*
+FujjitiveChanged         After any event which can potentially change the
+                        repository, for example, any invocation of |:JJ|.
                         Originally intended for expiring caches, but can have
                         other uses.
 
-API                                             *fugitive-api*
+API                                             *fujjitive-api*
 
 Officially supported functions are documented inline in plugin/fugitive.vim.
 
-DEPRECATIONS                                    *fugitive-deprecated*
+DEPRECATIONS                                    *fujjitive-deprecated*
 
 The following commands are deprecated in favor of replacements that adhere to
-a new naming scheme.  Remember that |:Git| can be shortened to |:G|, so
+a new naming scheme.  Remember that |:JJ| can be shortened to |:G|, so
 replacements using it are just one space character longer than the legacy
 version.
 
@@ -716,29 +716,29 @@ version.
 *:Gsdiff*       Superseded by |:Ghdiffsplit|
 *:Gvdiff*       Superseded by |:Gvdiffsplit| or |:vert| |:Gdiffsplit|.
 *:Gblame*       Superseded by |:Git_blame|.
-*:Gcommit*      Superseded by |:Git| commit.
-*:Gmerge*       Superseded by |:Git| merge and |:Git_mergetool|.
-*:Gpull*        Superseded by |:Git| pull.
-*:Grebase*      Superseded by |:Git| rebase.
-*:Grevert*      Superseded by |:Git| revert.
-*:Gpush*        Superseded by |:Git| push.
-*:Gfetch*       Superseded by |:Git| fetch.
+*:Gcommit*      Superseded by |:JJ| commit.
+*:Gmerge*       Superseded by |:JJ| merge and |:Git_mergetool|.
+*:Gpull*        Superseded by |:JJ| pull.
+*:Grebase*      Superseded by |:JJ| rebase.
+*:Grevert*      Superseded by |:JJ| revert.
+*:Gpush*        Superseded by |:JJ| push.
+*:Gfetch*       Superseded by |:JJ| fetch.
 *:Glog*         Superseded by |:Gclog|.
-*:Gstatus*      Superseded by |:Git| (with no arguments).
+*:Gstatus*      Superseded by |:JJ| (with no arguments).
 *:Gsplit!*      Superseded by |:Git_--paginate|.
 *:Gvsplit!*     Superseded by :vert Git --paginate.
 *:Gtabsplit!*   Superseded by :tab Git --paginate.
-*:Gpedit!*      Superseded by :Git! --paginate.
+*:Gpedit!*      Superseded by :JJ! --paginate.
 
-                                                *User_Fugitive*
-Fugitive used to support `:autocmd User Fugitive` to run an autocommand after
-loading any buffer belonging to a Git repository, but this has been phased
+                                                *User_Fujjitive*
+Fujjitive used to support `:autocmd User Fujjitive` to run an autocommand after
+loading any buffer belonging to a JJ repository, but this has been phased
 out.  Instead, one can leverage regular autocommand events like |BufNewFile|
-and |BufReadPost|, and check !empty(FugitiveGitDir()) to confirm Fugitive has
-found a repository.  See also |fugitive-autocommands| for other, more
+and |BufReadPost|, and check !empty(FujjitiveJJDir()) to confirm Fujjitive has
+found a repository.  See also |fujjitive-autocommands| for other, more
 selective events.
 
-ABOUT                                           *fugitive-about*
+ABOUT                                           *fujjitive-about*
 
 Grab the latest version or report a bug on GitHub:
 

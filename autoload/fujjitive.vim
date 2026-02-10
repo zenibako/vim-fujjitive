@@ -1,8 +1,9 @@
-" Location:     autoload/fugitive.vim
+" Location:     autoload/fujjitive.vim
 " Maintainer:   Tim Pope <http://tpo.pe/>
+" Based on fugitive.vim, adapted for Jujutsu (jj) VCS
 
 " The functions contained within this file are for internal use only.  For the
-" official API, see the commented functions in plugin/fugitive.vim.
+" official API, see the commented functions in plugin/fujjitive.vim.
 
 " Section: Utility
 
@@ -75,7 +76,7 @@ function! s:fnameescape(file) abort
   endif
 endfunction
 
-function! fugitive#UrlDecode(str) abort
+function! fujjitive#UrlDecode(str) abort
   return substitute(a:str, '%\(\x\x\)', '\=iconv(nr2char("0x".submatch(1)), "utf-8", "latin1")', 'g')
 endfunction
 
@@ -96,23 +97,23 @@ function! s:PathJoin(prefix, str) abort
 endfunction
 
 function! s:throw(string) abort
-  throw 'fugitive: '.a:string
+  throw 'fujjitive: '.a:string
 endfunction
 
 function! s:VersionCheck() abort
   if v:version < 704
-    return 'return ' . string('echoerr "fugitive: Vim 7.4 or newer required"')
-  elseif empty(fugitive#GitVersion())
+    return 'return ' . string('echoerr "fujjitive: Vim 7.4 or newer required"')
+  elseif empty(fujjitive#GitVersion())
     let exe = get(s:GitCmd(), 0, '')
     if len(exe) && !executable(exe)
-      return 'return ' . string('echoerr "fugitive: cannot find ' . string(exe) . ' in PATH"')
+      return 'return ' . string('echoerr "fujjitive: cannot find ' . string(exe) . ' in PATH"')
     endif
-    return 'return ' . string('echoerr "fugitive: cannot execute Git"')
-  elseif !fugitive#GitVersion(1, 8, 5)
-    return 'return ' . string('echoerr "fugitive: Git 1.8.5 or newer required"')
+    return 'return ' . string('echoerr "fujjitive: cannot execute JJ"')
+  elseif !fujjitive#GitVersion(0, 9)
+    return 'return ' . string('echoerr "fujjitive: Git 1.8.5 or newer required"')
   else
-    if exists('b:git_dir') && empty(b:git_dir)
-      unlet! b:git_dir
+    if exists('b:jj_dir') && empty(b:jj_dir)
+      unlet! b:jj_dir
     endif
     return ''
   endif
@@ -120,15 +121,15 @@ endfunction
 
 let s:worktree_error = "core.worktree is required when using an external Git dir"
 function! s:DirCheck(...) abort
-  let dir = call('FugitiveGitDir', a:000)
-  if !empty(dir) && FugitiveWorkTree(dir, 1) is# 0
-    return 'return ' . string('echoerr "fugitive: ' . s:worktree_error . '"')
+  let dir = call('FujjitiveJJDir', a:000)
+  if !empty(dir) && FujjitiveWorkTree(dir, 1) is# 0
+    return 'return ' . string('echoerr "fujjitive: ' . s:worktree_error . '"')
   elseif !empty(dir)
     return ''
   elseif empty(bufname(''))
-    return 'return ' . string('echoerr "fugitive: working directory does not belong to a Git repository"')
+    return 'return ' . string('echoerr "fujjitive: working directory does not belong to a JJ repository"')
   else
-    return 'return ' . string('echoerr "fugitive: file does not belong to a Git repository"')
+    return 'return ' . string('echoerr "fujjitive: file does not belong to a JJ repository"')
   endif
 endfunction
 
@@ -159,7 +160,7 @@ endfunction
 
 if exists('+shellslash')
 
-  let s:dir_commit_file = '\c^fugitive://\%(/[^/]\@=\)\=\([^?#]\{-1,\}\)//\%(\(\x\{40,\}\|[0-3]\)\(/[^?#]*\)\=\)\=$'
+  let s:dir_commit_file = '\c^fujjitive://\%(/[^/]\@=\)\=\([^?#]\{-1,\}\)//\%(\(\x\{40,\}\|[0-3]\)\(/[^?#]*\)\=\)\=$'
 
   function! s:Slash(path) abort
     return tr(a:path, '\', '/')
@@ -171,7 +172,7 @@ if exists('+shellslash')
 
 else
 
-  let s:dir_commit_file = '\c^fugitive://\([^?#]\{-\}\)//\%(\(\x\{40,\}\|[0-3]\)\(/[^?#]*\)\=\)\=$'
+  let s:dir_commit_file = '\c^fujjitive://\([^?#]\{-\}\)//\%(\(\x\{40,\}\|[0-3]\)\(/[^?#]*\)\=\)\=$'
 
   function! s:Slash(path) abort
     return a:path
@@ -238,7 +239,7 @@ function! s:Quote(string) abort
   endif
 endfunction
 
-function! fugitive#Unquote(string) abort
+function! fujjitive#Unquote(string) abort
   let string = substitute(a:string, "\t*$", '', '')
   if string =~# '^".*"$'
     return substitute(string[1:-2], '\\\(\o\o\o\|.\)', '\=get(s:unquote_chars, submatch(1), iconv(nr2char("0" . submatch(1)), "utf-8", "latin1"))', 'g')
@@ -268,7 +269,7 @@ function! s:TempScript(...) abort
   if !filereadable(temp)
     call writefile(['#!/bin/sh'] + a:000, temp)
   endif
-  let temp = FugitiveGitPath(temp)
+  let temp = FujjitiveJJPath(temp)
   if temp =~# '\s'
     let temp = '"' . temp . '"'
   endif
@@ -286,7 +287,7 @@ function! s:Map(mode, lhs, rhs, ...) abort
   let flags = substitute(flags, '<unique>', '', '') . (a:rhs =~# '<Plug>' ? '' : '<script>') . '<nowait>'
   for mode in split(a:mode, '\zs')
     if a:0 <= 1
-      call add(maps, mode.'map <buffer>' . substitute(flags, '<unique>', '', '') . ' <Plug>fugitive:' . a:lhs . ' ' . a:rhs)
+      call add(maps, mode.'map <buffer>' . substitute(flags, '<unique>', '', '') . ' <Plug>fujjitive:' . a:lhs . ' ' . a:rhs)
     endif
     let skip = 0
     let head = a:lhs
@@ -316,7 +317,7 @@ function! s:Map(mode, lhs, rhs, ...) abort
   return ''
 endfunction
 
-function! fugitive#Autowrite() abort
+function! fujjitive#Autowrite() abort
   if &autowrite || &autowriteall
     try
       if &confirm
@@ -333,7 +334,7 @@ function! fugitive#Autowrite() abort
   return ''
 endfunction
 
-function! fugitive#Wait(job_or_jobs, ...) abort
+function! fujjitive#Wait(job_or_jobs, ...) abort
   let original = type(a:job_or_jobs) == type([]) ? copy(a:job_or_jobs) : [a:job_or_jobs]
   let jobs = map(copy(original), 'type(v:val) ==# type({}) ? get(v:val, "job", "") : v:val')
   call filter(jobs, 'type(v:val) !=# type("")')
@@ -423,7 +424,7 @@ function! s:JobExecute(argv, jopts, stdin, callback, ...) abort
       unlet dict.job
     endif
   elseif &shell !~# 'sh' || &shell =~# 'fish\|\%(powershell\|pwsh\)\%(\.exe\)\=$'
-    throw 'fugitive: Vim 8 or higher required to use ' . &shell
+    throw 'fujjitive: Vim 8 or higher required to use ' . &shell
   else
     let cmd = s:shellesc(a:argv)
     let outfile = tempname()
@@ -444,7 +445,7 @@ function! s:JobExecute(argv, jopts, stdin, callback, ...) abort
     endtry
   endif
   if empty(a:callback)
-    call fugitive#Wait(dict)
+    call fujjitive#Wait(dict)
   endif
   return dict
 endfunction
@@ -455,18 +456,18 @@ function! s:add_methods(namespace, method_names) abort
   endfor
 endfunction
 
-" Section: Git
+" Section: JJ
 
 let s:run_jobs = (exists('*ch_close_in') || exists('*jobstart')) && exists('*bufwinid')
 
 function! s:GitCmd() abort
-  if !exists('g:fugitive_git_executable')
-    return ['git']
-  elseif type(g:fugitive_git_executable) == type([])
-    return g:fugitive_git_executable
+  if !exists('g:fujjitive_jj_executable')
+    return ['jj']
+  elseif type(g:fujjitive_jj_executable) == type([])
+    return g:fujjitive_jj_executable
   else
     let dquote = '"\%([^"]\|""\|\\"\)*"\|'
-    let string = g:fugitive_git_executable
+    let string = g:fujjitive_jj_executable
     let list = []
     if string =~# '^\w\+='
       call add(list, '/usr/bin/env')
@@ -485,12 +486,12 @@ function! s:GitCmd() abort
 endfunction
 
 function! s:GitShellCmd() abort
-  if !exists('g:fugitive_git_executable')
-    return 'git'
-  elseif type(g:fugitive_git_executable) == type([])
-    return s:shellesc(g:fugitive_git_executable)
+  if !exists('g:fujjitive_jj_executable')
+    return 'jj'
+  elseif type(g:fujjitive_jj_executable) == type([])
+    return s:shellesc(g:fujjitive_jj_executable)
   else
-    return g:fugitive_git_executable
+    return g:fujjitive_jj_executable
   endif
 endfunction
 
@@ -500,52 +501,52 @@ function! s:UserCommandCwd(dir) abort
 endfunction
 
 function! s:UserCommandList(...) abort
-  if !fugitive#GitVersion(1, 8, 5)
-    throw 'fugitive: Git 1.8.5 or higher required'
+  if !fujjitive#GitVersion(0, 9)
+    throw 'fujjitive: jj 0.9 or higher required'
   endif
-  if !exists('g:fugitive_git_command')
-    let git = s:GitCmd()
-  elseif type(g:fugitive_git_command) == type([])
-    let git = g:fugitive_git_command
+  if !exists('g:fujjitive_jj_command')
+    let jj = s:GitCmd()
+  elseif type(g:fujjitive_jj_command) == type([])
+    let jj = g:fujjitive_jj_command
   else
-    let git = split(g:fugitive_git_command, '\s\+')
+    let jj = split(g:fujjitive_jj_command, '\s\+')
   endif
   let flags = []
   if a:0 && type(a:1) == type({})
-    let git = copy(get(a:1, 'git', git))
+    let jj = copy(get(a:1, 'git', jj))
     let flags = get(a:1, 'flags', flags)
-    let dir = a:1.git_dir
+    let dir = a:1.jj_dir
   elseif a:0
-    let dir = s:GitDir(a:1)
+    let dir = s:JJDir(a:1)
   else
     let dir = ''
   endif
   if len(dir)
     let tree = s:Tree(dir)
     if empty(tree)
-      call add(git, '--git-dir=' . FugitiveGitPath(dir))
+      call add(jj, '--repository=' . FujjitiveJJPath(dir))
     else
-      if !s:cpath(tree . '/.git', dir) || len($GIT_DIR)
-        call add(git, '--git-dir=' . FugitiveGitPath(dir))
+      if !s:cpath(tree . '/.jj', dir) || len($JJ_DIR)
+        call add(jj, '--repository=' . FujjitiveJJPath(dir))
       endif
       if !s:cpath(tree, getcwd())
-        call extend(git, ['-C', FugitiveGitPath(tree)])
+        call extend(jj, ['-R', FujjitiveJJPath(tree)])
       endif
     endif
   endif
-  return git + flags
+  return jj + flags
 endfunction
 
-let s:git_versions = {}
-function! fugitive#GitVersion(...) abort
-  let git = s:GitShellCmd()
-  if !has_key(s:git_versions, git)
-    let s:git_versions[git] = matchstr(get(s:JobExecute(s:GitCmd() + ['--version'], {}, [], [], {}).stdout, 0, ''), '\d[^[:space:]]\+')
+let s:jj_versions = {}
+function! fujjitive#GitVersion(...) abort
+  let jj = s:GitShellCmd()
+  if !has_key(s:jj_versions, jj)
+    let s:jj_versions[jj] = matchstr(get(s:JobExecute(s:GitCmd() + ['version'], {}, [], [], {}).stdout, 0, ''), '\d[^[:space:]]\+')
   endif
   if !a:0
-    return s:git_versions[git]
+    return s:jj_versions[jj]
   endif
-  let components = split(s:git_versions[git], '\D\+')
+  let components = split(s:jj_versions[jj], '\D\+')
   if empty(components)
     return -1
   endif
@@ -560,35 +561,35 @@ function! fugitive#GitVersion(...) abort
 endfunction
 
 function! s:Dir(...) abort
-  return a:0 ? FugitiveGitDir(a:1) : FugitiveGitDir()
+  return a:0 ? FujjitiveJJDir(a:1) : FujjitiveJJDir()
 endfunction
 
-function! s:GitDir(...) abort
-  return a:0 ? FugitiveGitDir(a:1) : FugitiveGitDir()
+function! s:JJDir(...) abort
+  return a:0 ? FujjitiveJJDir(a:1) : FujjitiveJJDir()
 endfunction
 
 function! s:InitializeBuffer(repo) abort
-  let b:git_dir = s:GitDir(a:repo)
+  let b:jj_dir = s:JJDir(a:repo)
 endfunction
 
 function! s:SameRepo(one, two) abort
-  let one = s:GitDir(a:one)
-  return !empty(one) && one ==# s:GitDir(a:two)
+  let one = s:JJDir(a:one)
+  return !empty(one) && one ==# s:JJDir(a:two)
 endfunction
 
 if exists('+shellslash')
   function! s:DirUrlPrefix(dir) abort
-    let gd = s:GitDir(a:dir)
-    return 'fugitive://' . (gd =~# '^[^/]' ? '/' : '') . s:PathUrlEncode(gd) . '//'
+    let gd = s:JJDir(a:dir)
+    return 'fujjitive://' . (gd =~# '^[^/]' ? '/' : '') . s:PathUrlEncode(gd) . '//'
   endfunction
 else
   function! s:DirUrlPrefix(dir) abort
-    return 'fugitive://' . s:PathUrlEncode(s:GitDir(a:dir)) . '//'
+    return 'fujjitive://' . s:PathUrlEncode(s:JJDir(a:dir)) . '//'
   endfunction
 endif
 
 function! s:Tree(...) abort
-  return a:0 ? FugitiveWorkTree(a:1) : FugitiveWorkTree()
+  return a:0 ? FujjitiveWorkTree(a:1) : FujjitiveWorkTree()
 endfunction
 
 function! s:HasOpt(args, ...) abort
@@ -609,15 +610,15 @@ endfunction
 
 function! s:PreparePathArgs(cmd, dir, literal, explicit) abort
   if !a:explicit
-    call insert(a:cmd, '--literal-pathspecs')
+    call insert(a:cmd, '')
   endif
   let split = index(a:cmd, '--')
   for i in range(split < 0 ? len(a:cmd) : split)
       if type(a:cmd[i]) == type(0)
         if a:literal
-          let a:cmd[i] = fugitive#Path(bufname(a:cmd[i]), './', a:dir)
+          let a:cmd[i] = fujjitive#Path(bufname(a:cmd[i]), './', a:dir)
         else
-          let a:cmd[i] = fugitive#Path(bufname(a:cmd[i]), ':(top,literal)', a:dir)
+          let a:cmd[i] = fujjitive#Path(bufname(a:cmd[i]), ':(top,literal)', a:dir)
         endif
       endif
   endfor
@@ -627,53 +628,53 @@ function! s:PreparePathArgs(cmd, dir, literal, explicit) abort
   for i in range(split + 1, len(a:cmd) - 1)
     if type(a:cmd[i]) == type(0)
       if a:literal
-        let a:cmd[i] = fugitive#Path(bufname(a:cmd[i]), './', a:dir)
+        let a:cmd[i] = fujjitive#Path(bufname(a:cmd[i]), './', a:dir)
       else
-        let a:cmd[i] = fugitive#Path(bufname(a:cmd[i]), ':(top,literal)', a:dir)
+        let a:cmd[i] = fujjitive#Path(bufname(a:cmd[i]), ':(top,literal)', a:dir)
       endif
     elseif !a:explicit
-      let a:cmd[i] = fugitive#Path(a:cmd[i], './', a:dir)
+      let a:cmd[i] = fujjitive#Path(a:cmd[i], './', a:dir)
     endif
   endfor
   return a:cmd
 endfunction
 
-let s:git_index_file_env = {}
-function! s:GitIndexFileEnv() abort
-  if $GIT_INDEX_FILE =~# '^/\|^\a:' && !has_key(s:git_index_file_env, $GIT_INDEX_FILE)
-    let s:git_index_file_env[$GIT_INDEX_FILE] = s:Slash(FugitiveVimPath($GIT_INDEX_FILE))
+let s:jj_index_file_env = {}
+function! s:JJIndexFileEnv() abort
+  if $JJ_INDEX_FILE =~# '^/\|^\a:' && !has_key(s:jj_index_file_env, $JJ_INDEX_FILE)
+    let s:jj_index_file_env[$JJ_INDEX_FILE] = s:Slash(FujjitiveVimPath($JJ_INDEX_FILE))
   endif
-  return get(s:git_index_file_env, $GIT_INDEX_FILE, '')
+  return get(s:jj_index_file_env, $JJ_INDEX_FILE, '')
 endfunction
 
 function! s:PrepareEnv(env, dir) abort
-  if len($GIT_INDEX_FILE) && len(s:Tree(a:dir)) && !has_key(a:env, 'GIT_INDEX_FILE')
-    let index_dir = substitute(s:GitIndexFileEnv(), '[^/]\+$', '', '')
-    let our_dir = fugitive#Find('.git/', a:dir)
+  if len($JJ_INDEX_FILE) && len(s:Tree(a:dir)) && !has_key(a:env, 'JJ_INDEX_FILE')
+    let index_dir = substitute(s:JJIndexFileEnv(), '[^/]\+$', '', '')
+    let our_dir = fujjitive#Find('.jj/', a:dir)
     if !s:cpath(index_dir, our_dir) && !s:cpath(resolve(index_dir), our_dir)
-      let a:env['GIT_INDEX_FILE'] = FugitiveGitPath(fugitive#Find('.git/index', a:dir))
+      let a:env['JJ_INDEX_FILE'] = FujjitiveJJPath(fujjitive#Find('.jj/index', a:dir))
     endif
   endif
-  if len($GIT_WORK_TREE)
+  if len($JJ_WORK_TREE)
     let a:env['GIT_WORK_TREE'] = '.'
   endif
 endfunction
 
 let s:prepare_env = {
-      \ 'sequence.editor': 'GIT_SEQUENCE_EDITOR',
-      \ 'core.editor': 'GIT_EDITOR',
-      \ 'core.askpass': 'GIT_ASKPASS',
+      \ 'sequence.editor': 'JJ_SEQUENCE_EDITOR',
+      \ 'core.editor': 'JJ_EDITOR',
+      \ 'core.askpass': 'JJ_ASKPASS',
       \ }
-function! fugitive#PrepareDirEnvGitFlagsArgs(...) abort
-  if !fugitive#GitVersion(1, 8, 5)
-    throw 'fugitive: Git 1.8.5 or higher required'
+function! fujjitive#PrepareDirEnvGitFlagsArgs(...) abort
+  if !fujjitive#GitVersion(0, 9)
+    throw 'fujjitive: jj 0.9 or higher required'
   endif
   let git = s:GitCmd()
-  if a:0 == 1 && type(a:1) == type({}) && (has_key(a:1, 'fugitive_dir') || has_key(a:1, 'git_dir')) && has_key(a:1, 'flags') && has_key(a:1, 'args')
+  if a:0 == 1 && type(a:1) == type({}) && (has_key(a:1, 'fujjitive_dir') || has_key(a:1, 'jj_dir')) && has_key(a:1, 'flags') && has_key(a:1, 'args')
     let cmd = a:1.flags + a:1.args
     let dir = s:Dir(a:1)
     if has_key(a:1, 'git')
-      let git = a:1.git
+      let git = a:1.jj
     endif
     let env = get(a:1, 'env', {})
   else
@@ -696,11 +697,11 @@ function! fugitive#PrepareDirEnvGitFlagsArgs(...) abort
   let arg_count = 0
   while i < len(cmd)
     if type(cmd[i]) == type({})
-      if has_key(cmd[i], 'fugitive_dir') || has_key(cmd[i], 'git_dir')
+      if has_key(cmd[i], 'fujjitive_dir') || has_key(cmd[i], 'jj_dir')
         let dir = s:Dir(cmd[i])
       endif
       if has_key(cmd[i], 'git')
-        let git = cmd[i].git
+        let git = cmd[i].jj
       endif
       if has_key(cmd[i], 'env')
         call extend(env, cmd[i].env)
@@ -721,7 +722,7 @@ function! fugitive#PrepareDirEnvGitFlagsArgs(...) abort
       endif
       let i += 2
     elseif cmd[i] =~# '^--.*pathspecs$'
-      let literal_pathspecs = (cmd[i] ==# '--literal-pathspecs')
+      let literal_pathspecs = (cmd[i] ==# '')
       let explicit_pathspec_option = 1
       let i += 1
     elseif cmd[i] !~# '^-'
@@ -789,19 +790,19 @@ function! s:PrepareJob(opts) abort
       let jopts.cwd = a:opts.cwd
       let dict.cwd = a:opts.cwd
     else
-      throw 'fugitive: cwd unsupported'
+      throw 'fujjitive: cwd unsupported'
     endif
   endif
   return [argv, jopts, dict]
 endfunction
 
-function! fugitive#PrepareJob(...) abort
+function! fujjitive#PrepareJob(...) abort
   if a:0 == 1 && type(a:1) == type({}) && has_key(a:1, 'argv') && !has_key(a:1, 'args')
     return s:PrepareJob(a:1)
   endif
-  let [repo, user_env, exec_env, git, flags, args] = call('fugitive#PrepareDirEnvGitFlagsArgs', a:000)
-  let dir = s:GitDir(repo)
-  let dict = {'git': git, 'git_dir': dir, 'flags': flags, 'args': args}
+  let [repo, user_env, exec_env, git, flags, args] = call('fujjitive#PrepareDirEnvGitFlagsArgs', a:000)
+  let dir = s:JJDir(repo)
+  let dict = {'git': git, 'jj_dir': dir, 'flags': flags, 'args': args}
   if len(user_env)
     let dict.env = user_env
   endif
@@ -809,19 +810,19 @@ function! fugitive#PrepareJob(...) abort
   let tree = s:Tree(repo)
   if empty(tree) || index(cmd, '--') == len(cmd) - 1
     let dict.cwd = getcwd()
-    call extend(cmd, ['--git-dir=' . FugitiveGitPath(dir)], 'keep')
+    call extend(cmd, ['--repository=' . FujjitiveJJPath(dir)], 'keep')
   else
     let dict.cwd = s:VimSlash(tree)
-    call extend(cmd, ['-C', FugitiveGitPath(tree)], 'keep')
-    if !s:cpath(tree . '/.git', dir) || len($GIT_DIR)
-      call extend(cmd, ['--git-dir=' . FugitiveGitPath(dir)], 'keep')
+    call extend(cmd, ['-C', FujjitiveJJPath(tree)], 'keep')
+    if !s:cpath(tree . '/.git', dir) || len($JJ_DIR)
+      call extend(cmd, ['--repository=' . FujjitiveJJPath(dir)], 'keep')
     endif
   endif
   call extend(cmd, git, 'keep')
   return s:JobOpts(cmd, exec_env) + [dict]
 endfunction
 
-function! fugitive#Execute(...) abort
+function! fujjitive#Execute(...) abort
   let cb = copy(a:000)
   let cmd = []
   let stdin = []
@@ -839,7 +840,7 @@ function! fugitive#Execute(...) abort
     endif
     call add(cmd, remove(cb, 0))
   endwhile
-  let [argv, jopts, dict] = call('fugitive#PrepareJob', cmd)
+  let [argv, jopts, dict] = call('fujjitive#PrepareJob', cmd)
   return s:JobExecute(argv, jopts, stdin, cb, dict)
 endfunction
 
@@ -848,11 +849,11 @@ function! s:BuildShell(dir, env, git, args) abort
   let tree = s:Tree(a:dir)
   let pre = s:BuildEnvPrefix(a:env)
   if empty(tree) || index(cmd, '--') == len(cmd) - 1
-    call insert(cmd, '--git-dir=' . FugitiveGitPath(a:dir))
+    call insert(cmd, '--repository=' . FujjitiveJJPath(a:dir))
   else
-    call extend(cmd, ['-C', FugitiveGitPath(tree)], 'keep')
-    if !s:cpath(tree . '/.git', a:dir) || len($GIT_DIR)
-      call extend(cmd, ['--git-dir=' . FugitiveGitPath(a:dir)], 'keep')
+    call extend(cmd, ['-C', FujjitiveJJPath(tree)], 'keep')
+    if !s:cpath(tree . '/.git', a:dir) || len($JJ_DIR)
+      call extend(cmd, ['--repository=' . FujjitiveJJPath(a:dir)], 'keep')
     endif
   endif
   return pre . join(map(a:git + cmd, 's:shellesc(v:val)'))
@@ -900,9 +901,9 @@ function! s:SystemList(cmd) abort
   endif
 endfunction
 
-function! fugitive#ShellCommand(...) abort
-  let [repo, _, env, git, flags, args] = call('fugitive#PrepareDirEnvGitFlagsArgs', a:000)
-  return s:BuildShell(s:GitDir(repo), env, git, flags + args)
+function! fujjitive#ShellCommand(...) abort
+  let [repo, _, env, git, flags, args] = call('fujjitive#PrepareDirEnvGitFlagsArgs', a:000)
+  return s:BuildShell(s:JJDir(repo), env, git, flags + args)
 endfunction
 
 function! s:SystemError(cmd, ...) abort
@@ -938,17 +939,17 @@ function! s:SystemError(cmd, ...) abort
 endfunction
 
 function! s:ChompStderr(...) abort
-  let r = call('fugitive#Execute', a:000)
+  let r = call('fujjitive#Execute', a:000)
   return !r.exit_status ? '' : len(r.stderr) > 1 ? s:JoinChomp(r.stderr) : 'unknown Git error' . string(r)
 endfunction
 
 function! s:ChompDefault(default, ...) abort
-  let r = call('fugitive#Execute', a:000)
+  let r = call('fujjitive#Execute', a:000)
   return r.exit_status ? a:default : s:JoinChomp(r.stdout)
 endfunction
 
 function! s:LinesError(...) abort
-  let r = call('fugitive#Execute', a:000)
+  let r = call('fujjitive#Execute', a:000)
   if empty(r.stdout[-1])
     call remove(r.stdout, -1)
   endif
@@ -956,15 +957,15 @@ function! s:LinesError(...) abort
 endfunction
 
 function! s:TreeChomp(...) abort
-  let r = call('fugitive#Execute', a:000)
+  let r = call('fujjitive#Execute', a:000)
   if !r.exit_status
     return s:JoinChomp(r.stdout)
   endif
-  throw 'fugitive: error running `' . call('fugitive#ShellCommand', a:000) . '`: ' . s:JoinChomp(r.stderr)
+  throw 'fujjitive: error running `' . call('fujjitive#ShellCommand', a:000) . '`: ' . s:JoinChomp(r.stderr)
 endfunction
 
 function! s:StdoutToFile(out, cmd, ...) abort
-  let [argv, jopts, _] = fugitive#PrepareJob(a:cmd)
+  let [argv, jopts, _] = fujjitive#PrepareJob(a:cmd)
   let exit = []
   if exists('*jobstart')
     call extend(jopts, {
@@ -1003,21 +1004,21 @@ function! s:StdoutToFile(out, cmd, ...) abort
       call delete(err)
     endtry
   elseif s:winshell() || &shell !~# 'sh' || &shell =~# 'fish\|\%(powershell\|pwsh\)\%(\.exe\)\=$'
-    throw 'fugitive: Vim 8 or higher required to use ' . &shell
+    throw 'fujjitive: Vim 8 or higher required to use ' . &shell
   else
-    let cmd = fugitive#ShellCommand(a:cmd)
+    let cmd = fujjitive#ShellCommand(a:cmd)
     return call('s:SystemError', [' (' . cmd . ' >' . (len(a:out) ? a:out : '/dev/null') . ') '] + a:000)
   endif
 endfunction
 
 let s:head_cache = {}
 
-function! fugitive#Head(...) abort
+function! fujjitive#Head(...) abort
   let dir = a:0 > 1 ? a:2 : s:Dir()
   if empty(dir)
     return ''
   endif
-  let file = FugitiveActualDir(dir) . '/HEAD'
+  let file = FujjitiveActualDir(dir) . '/HEAD'
   let ftime = getftime(file)
   if ftime == -1
     return ''
@@ -1039,21 +1040,21 @@ function! fugitive#Head(...) abort
   endif
 endfunction
 
-function! fugitive#RevParse(rev, ...) abort
+function! fujjitive#RevParse(rev, ...) abort
   let hash = s:ChompDefault('', [a:0 ? a:1 : s:Dir(), 'rev-parse', '--verify', a:rev, '--'])
   if hash =~# '^\x\{40,\}$'
     return hash
   endif
-  throw 'fugitive: failed to parse revision ' . a:rev
+  throw 'fujjitive: failed to parse revision ' . a:rev
 endfunction
 
-" Section: Git config
+" Section: JJ config
 
 function! s:ConfigTimestamps(dir, dict) abort
   let files = ['/etc/gitconfig', '~/.gitconfig',
         \ len($XDG_CONFIG_HOME) ? $XDG_CONFIG_HOME . '/git/config' : '~/.config/git/config']
   if len(a:dir)
-    call add(files, fugitive#Find('.git/config', a:dir))
+    call add(files, fujjitive#Find('.jj/config', a:dir))
   endif
   call extend(files, get(a:dict, 'include.path', []))
   return join(map(files, 'getftime(expand(v:val))'), ',')
@@ -1078,7 +1079,7 @@ function! s:ConfigCallback(r, into) abort
   endfor
   let callbacks = remove(dict, 'callbacks')
   lockvar! dict
-  let a:into[0] = s:ConfigTimestamps(dict.git_dir, dict)
+  let a:into[0] = s:ConfigTimestamps(dict.jj_dir, dict)
   for callback in callbacks
     call call(callback[0], [dict] + callback[1:-1])
   endfor
@@ -1087,18 +1088,18 @@ endfunction
 let s:config_prototype = {}
 
 let s:config = {}
-function! fugitive#ExpireConfig(...) abort
+function! fujjitive#ExpireConfig(...) abort
   if !a:0 || a:1 is# 0
     let s:config = {}
   else
-    let key = a:1 is# '' ? '_' : s:GitDir(a:0 ? a:1 : -1)
+    let key = a:1 is# '' ? '_' : s:JJDir(a:0 ? a:1 : -1)
     if len(key) && has_key(s:config, key)
       call remove(s:config, key)
     endif
   endif
 endfunction
 
-function! fugitive#Config(...) abort
+function! fujjitive#Config(...) abort
   let name = ''
   let default = get(a:, 3, '')
   if a:0 && type(a:1) == type(function('tr'))
@@ -1117,7 +1118,7 @@ function! fugitive#Config(...) abort
       let callback = a:000[1:-1]
     endif
   elseif a:0 >= 2 && type(a:2) == type({}) && has_key(a:2, 'GetAll')
-    return get(fugitive#ConfigGetAll(a:1, a:2), -1, default)
+    return get(fujjitive#ConfigGetAll(a:1, a:2), -1, default)
   elseif a:0 >= 2
     let dir = s:Dir(a:2)
     let name = a:1
@@ -1132,52 +1133,52 @@ function! fugitive#Config(...) abort
     let dir = s:Dir()
   endif
   let name = substitute(name, '^[^.]\+\|[^.]\+$', '\L&', 'g')
-  let git_dir = s:GitDir(dir)
+  let git_dir = s:JJDir(dir)
   let dir_key = len(git_dir) ? git_dir : '_'
   let [ts, dict] = get(s:config, dir_key, ['new', {}])
   if !has_key(dict, 'job') && ts !=# s:ConfigTimestamps(git_dir, dict)
     let dict = copy(s:config_prototype)
-    let dict.git_dir = git_dir
+    let dict.jj_dir = git_dir
     let into = ['running', dict]
     let dict.callbacks = []
-    let exec = fugitive#Execute([dir, 'config', '--list', '-z', '--'], function('s:ConfigCallback'), into)
+    let exec = fujjitive#Execute([dir, 'config', '--list', '-z', '--'], function('s:ConfigCallback'), into)
     if has_key(exec, 'job')
       let dict.job = exec.job
     endif
     let s:config[dir_key] = into
   endif
   if !exists('l:callback')
-    call fugitive#Wait(dict)
+    call fujjitive#Wait(dict)
   elseif has_key(dict, 'callbacks')
     call add(dict.callbacks, callback)
   else
     call call(callback[0], [dict] + callback[1:-1])
   endif
-  return len(name) ? get(fugitive#ConfigGetAll(name, dict), 0, default) : dict
+  return len(name) ? get(fujjitive#ConfigGetAll(name, dict), 0, default) : dict
 endfunction
 
-function! fugitive#ConfigGetAll(name, ...) abort
+function! fujjitive#ConfigGetAll(name, ...) abort
   if a:0 && (type(a:name) !=# type('') || a:name !~# '^[[:alnum:]-]\+\.' && type(a:1) ==# type('') && a:1 =~# '^[[:alnum:]-]\+\.')
-    let config = fugitive#Config(a:name)
+    let config = fujjitive#Config(a:name)
     let name = a:1
   else
-    let config = fugitive#Config(a:0 ? a:1 : s:Dir())
+    let config = fujjitive#Config(a:0 ? a:1 : s:Dir())
     let name = a:name
   endif
   let name = substitute(name, '^[^.]\+\|[^.]\+$', '\L&', 'g')
-  call fugitive#Wait(config)
+  call fujjitive#Wait(config)
   return name =~# '\.' ? copy(get(config, name, [])) : []
 endfunction
 
-function! fugitive#ConfigGetRegexp(pattern, ...) abort
+function! fujjitive#ConfigGetRegexp(pattern, ...) abort
   if type(a:pattern) !=# type('')
-    let config = fugitive#Config(a:name)
+    let config = fujjitive#Config(a:name)
     let pattern = a:0 ? a:1 : '.*'
   else
-    let config = fugitive#Config(a:0 ? a:1 : s:Dir())
+    let config = fujjitive#Config(a:0 ? a:1 : s:Dir())
     let pattern = a:pattern
   endif
-  call fugitive#Wait(config)
+  call fujjitive#Wait(config)
   let filtered = map(filter(copy(config), 'v:key =~# "\\." && v:key =~# pattern'), 'copy(v:val)')
   if pattern !~# '\\\@<!\%(\\\\\)*\\z[se]'
     return filtered
@@ -1194,7 +1195,7 @@ endfunction
 
 function! s:config_GetAll(name) dict abort
   let name = substitute(a:name, '^[^.]\+\|[^.]\+$', '\L&', 'g')
-  call fugitive#Wait(self)
+  call fujjitive#Wait(self)
   return name =~# '\.' ? copy(get(self, name, [])) : []
 endfunction
 
@@ -1203,18 +1204,18 @@ function! s:config_Get(name, ...) dict abort
 endfunction
 
 function! s:config_GetRegexp(pattern) dict abort
-  return fugitive#ConfigGetRegexp(self, a:pattern)
+  return fujjitive#ConfigGetRegexp(self, a:pattern)
 endfunction
 
 call s:add_methods('config', ['GetAll', 'Get', 'GetRegexp'])
 
 function! s:RemoteDefault(dir) abort
-  let head = FugitiveHead(0, a:dir)
-  let remote = len(head) ? FugitiveConfigGet('branch.' . head . '.remote', a:dir) : ''
+  let head = FujjitiveHead(0, a:dir)
+  let remote = len(head) ? FujjitiveConfigGet('branch.' . head . '.remote', a:dir) : ''
   let i = 10
   while remote ==# '.' && i > 0
-    let head = matchstr(FugitiveConfigGet('branch.' . head . '.merge', a:dir), 'refs/heads/\zs.*')
-    let remote = len(head) ? FugitiveConfigGet('branch.' . head . '.remote', a:dir) : ''
+    let head = matchstr(FujjitiveConfigGet('branch.' . head . '.merge', a:dir), 'refs/heads/\zs.*')
+    let remote = len(head) ? FujjitiveConfigGet('branch.' . head . '.remote', a:dir) : ''
     let i -= 1
   endwhile
   return remote =~# '^\.\=$' ? 'origin' : remote
@@ -1270,7 +1271,7 @@ function! s:SshParseConfig(into, root, file) abort
 endfunction
 
 unlet! s:ssh_config
-function! fugitive#SshConfig(host, ...) abort
+function! fujjitive#SshConfig(host, ...) abort
   if !exists('s:ssh_config')
     let s:ssh_config = {}
     for file in [expand("~/.ssh/config"), "/etc/ssh/ssh_config"]
@@ -1289,9 +1290,9 @@ function! fugitive#SshConfig(host, ...) abort
   return host_config
 endfunction
 
-function! fugitive#SshHostAlias(authority) abort
+function! fujjitive#SshHostAlias(authority) abort
   let [_, user, host, port; __] = matchlist(a:authority, '^\%(\([^/@]\+\)@\)\=\(.\{-\}\)\%(:\(\d\+\)\)\=$')
-  let c = fugitive#SshConfig(host, ['user', 'hostname', 'port'])
+  let c = fujjitive#SshConfig(host, ['user', 'hostname', 'port'])
   if empty(user)
     let user = get(c, 'user', '')
   endif
@@ -1320,7 +1321,7 @@ endfunction
 
 let s:remote_headers = {}
 
-function! fugitive#RemoteHttpHeaders(remote) abort
+function! fujjitive#RemoteHttpHeaders(remote) abort
   let remote = type(a:remote) ==# type({}) ? get(a:remote, 'remote', '') : a:remote
   if type(remote) !=# type('') || remote !~# '^https\=://.' || !s:executable('curl')
     return {}
@@ -1331,7 +1332,7 @@ function! fugitive#RemoteHttpHeaders(remote) abort
     let exec = s:JobExecute(
           \ ['curl', '--disable', '--silent', '--max-time', '5', '-X', 'GET', '-I',
           \ url], {}, [], [function('s:CurlResponse')], {})
-    call fugitive#Wait(exec)
+    call fujjitive#Wait(exec)
     let s:remote_headers[remote] = exec.headers
   endif
   return s:remote_headers[remote]
@@ -1360,7 +1361,7 @@ endfunction
 function! s:UrlPopulate(string, into) abort
   let url = a:into
   let url.protocol = substitute(url.scheme, '.\zs$', ':', '')
-  let url.user = fugitive#UrlDecode(matchstr(url.authority, '.\{-\}\ze@', '', ''))
+  let url.user = fujjitive#UrlDecode(matchstr(url.authority, '.\{-\}\ze@', '', ''))
   let url.host = substitute(url.authority, '.\{-\}@', '', '')
   let url.hostname = substitute(url.host, ':\d\+$', '', '')
   let url.port = matchstr(url.host, ':\zs\d\+$', '', '')
@@ -1379,14 +1380,14 @@ function! s:UrlPopulate(string, into) abort
   else
     let url.href = a:string
   endif
-  let url.path = fugitive#UrlDecode(matchstr(url.path, '^[^?]*'))
+  let url.path = fujjitive#UrlDecode(matchstr(url.path, '^[^?]*'))
   let url.url = matchstr(url.href, '^[^#]*')
 endfunction
 
 function! s:RemoteResolve(url, flags) abort
   let remote = s:UrlParse(a:url)
   if remote.scheme =~# '^https\=$' && index(a:flags, ':nohttp') < 0
-    let headers = fugitive#RemoteHttpHeaders(a:url)
+    let headers = fujjitive#RemoteHttpHeaders(a:url)
     let loc = matchstr(get(headers, 'location', ''), '^https\=://.\{-\}\ze/info/refs?')
     if len(loc)
       let remote = s:UrlParse(loc)
@@ -1394,7 +1395,7 @@ function! s:RemoteResolve(url, flags) abort
       let remote.headers = headers
     endif
   elseif remote.scheme ==# 'ssh'
-    let remote.authority = fugitive#SshHostAlias(remote.authority)
+    let remote.authority = fujjitive#SshHostAlias(remote.authority)
   endif
   return remote
 endfunction
@@ -1409,13 +1410,13 @@ function! s:RemoteCallback(config, into, flags, cb) abort
   endif
   let url = a:into.remote_name
 
-  if url ==# '.git'
-    let url = s:GitDir(a:config)
+  if url ==# '.jj'
+    let url = s:JJDir(a:config)
   elseif url !~# ':\|^/\|^\a:[\/]\|^\.\.\=/'
-    let url = FugitiveConfigGet('remote.' . url . '.url', a:config)
+    let url = FujjitiveConfigGet('remote.' . url . '.url', a:config)
   endif
   let instead_of = []
-  for [k, vs] in items(fugitive#ConfigGetRegexp('^url\.\zs.\{-\}\ze\.insteadof$', a:config))
+  for [k, vs] in items(fujjitive#ConfigGetRegexp('^url\.\zs.\{-\}\ze\.insteadof$', a:config))
     for v in vs
       call add(instead_of, [v, k])
     endfor
@@ -1439,12 +1440,12 @@ function! s:RemoteCallback(config, into, flags, cb) abort
 endfunction
 
 function! s:Remote(dir, remote, flags, cb) abort
-  let into = {'remote_name': a:remote, 'git_dir': s:GitDir(a:dir)}
-  let config = fugitive#Config(a:dir, function('s:RemoteCallback'), into, a:flags, a:cb)
+  let into = {'remote_name': a:remote, 'jj_dir': s:JJDir(a:dir)}
+  let config = fujjitive#Config(a:dir, function('s:RemoteCallback'), into, a:flags, a:cb)
   if len(a:cb)
     return config
   else
-    call fugitive#Wait(config)
+    call fujjitive#Wait(config)
     return into
   endif
 endfunction
@@ -1486,7 +1487,7 @@ function! s:RemoteParseArgs(args) abort
   return [dir_or_config, remote, flags, cb]
 endfunction
 
-function! fugitive#Remote(...) abort
+function! fujjitive#Remote(...) abort
   let [dir_or_config, remote, flags, cb] = s:RemoteParseArgs(a:000)
   return s:Remote(dir_or_config, remote, flags, cb)
 endfunction
@@ -1495,7 +1496,7 @@ function! s:RemoteUrlCallback(remote, callback) abort
   return call(a:callback[0], [a:remote.url] + a:callback[1:-1])
 endfunction
 
-function! fugitive#RemoteUrl(...) abort
+function! fujjitive#RemoteUrl(...) abort
   let [dir_or_config, remote_url, flags, cb] = s:RemoteParseArgs(a:000)
   if len(cb)
     let cb = [function('s:RemoteUrlCallback'), cb]
@@ -1539,7 +1540,7 @@ function! s:QuickfixStream(nr, event, title, cmd, first, mods, callback, ...) ab
   call s:BlurStatus()
   let opts = {'title': a:title, 'context': {'items': []}}
   call s:QuickfixCreate(a:nr, opts)
-  let event = (a:nr < 0 ? 'c' : 'l') . 'fugitive-' . a:event
+  let event = (a:nr < 0 ? 'c' : 'l') . 'fujjitive-' . a:event
   exe s:DoAutocmd('QuickFixCmdPre ' . event)
   let winnr = winnr()
   exe s:QuickfixOpen(a:nr, a:mods)
@@ -1579,7 +1580,7 @@ function! s:QuickfixStream(nr, event, title, cmd, first, mods, callback, ...) ab
   return 'exe'
 endfunction
 
-function! fugitive#Cwindow() abort
+function! fujjitive#Cwindow() abort
   if &buftype == 'quickfix'
     cwindow
   else
@@ -1594,55 +1595,55 @@ endfunction
 
 let s:repo_prototype = {}
 
-function! fugitive#repo(...) abort
-  let dir = a:0 ? s:GitDir(a:1) : (len(s:GitDir()) ? s:GitDir() : FugitiveExtractGitDir(expand('%:p')))
+function! fujjitive#repo(...) abort
+  let dir = a:0 ? s:JJDir(a:1) : (len(s:JJDir()) ? s:JJDir() : FujjitiveExtractJJDir(expand('%:p')))
   if dir !=# ''
-    return extend({'git_dir': dir, 'fugitive_dir': dir}, s:repo_prototype, 'keep')
+    return extend({'jj_dir': dir, 'fujjitive_dir': dir}, s:repo_prototype, 'keep')
   endif
-  throw 'fugitive: not a Git repository'
+  throw 'fujjitive: not a JJ repository'
 endfunction
 
 function! s:repo_dir(...) dict abort
   if !a:0
-    return self.git_dir
+    return self.jj_dir
   endif
-  throw 'fugitive: fugitive#repo().dir("...") has been replaced by FugitiveFind(".git/...")'
+  throw 'fujjitive: fujjitive#repo().dir("...") has been replaced by FujjitiveFind(".jj/...")'
 endfunction
 
 function! s:repo_tree(...) dict abort
-  let tree = s:Tree(self.git_dir)
+  let tree = s:Tree(self.jj_dir)
   if empty(tree)
-    throw 'fugitive: no work tree'
+    throw 'fujjitive: no work tree'
   elseif !a:0
     return tree
   endif
-  throw 'fugitive: fugitive#repo().tree("...") has been replaced by FugitiveFind(":(top)...")'
+  throw 'fujjitive: fujjitive#repo().tree("...") has been replaced by FujjitiveFind(":(top)...")'
 endfunction
 
 function! s:repo_bare() dict abort
-  throw 'fugitive: fugitive#repo().bare() has been replaced by !empty(FugitiveWorkTree())'
+  throw 'fujjitive: fujjitive#repo().bare() has been replaced by !empty(FujjitiveWorkTree())'
 endfunction
 
 function! s:repo_find(object) dict abort
-  throw 'fugitive: fugitive#repo().find(...) has been replaced by FugitiveFind(...)'
+  throw 'fujjitive: fujjitive#repo().find(...) has been replaced by FujjitiveFind(...)'
 endfunction
 
 function! s:repo_translate(rev) dict abort
-  throw 'fugitive: fugitive#repo().translate(...) has been replaced by FugitiveFind(...)'
+  throw 'fujjitive: fujjitive#repo().translate(...) has been replaced by FujjitiveFind(...)'
 endfunction
 
 function! s:repo_head(...) dict abort
-  throw 'fugitive: fugitive#repo().head(...) has been replaced by FugitiveHead(...)'
+  throw 'fujjitive: fujjitive#repo().head(...) has been replaced by FujjitiveHead(...)'
 endfunction
 
 call s:add_methods('repo',['dir','tree','bare','find','translate','head'])
 
 function! s:repo_git_command(...) dict abort
-  throw 'fugitive: fugitive#repo().git_command(...) has been replaced by FugitiveShellCommand(...)'
+  throw 'fujjitive: fujjitive#repo().git_command(...) has been replaced by FujjitiveShellCommand(...)'
 endfunction
 
 function! s:repo_git_chomp(...) dict abort
-  silent return substitute(system(fugitive#ShellCommand(a:000, self.git_dir)), '\n$', '', '')
+  silent return substitute(system(fujjitive#ShellCommand(a:000, self.jj_dir)), '\n$', '', '')
 endfunction
 
 function! s:repo_git_chomp_in_tree(...) dict abort
@@ -1650,13 +1651,13 @@ function! s:repo_git_chomp_in_tree(...) dict abort
 endfunction
 
 function! s:repo_rev_parse(rev) dict abort
-  throw 'fugitive: fugitive#repo().rev_parse(...) has been replaced by FugitiveExecute("rev-parse", "--verify", ...).stdout'
+  throw 'fujjitive: fujjitive#repo().rev_parse(...) has been replaced by FujjitiveExecute("rev-parse", "--verify", ...).stdout'
 endfunction
 
 call s:add_methods('repo',['git_command','git_chomp','git_chomp_in_tree','rev_parse'])
 
 function! s:repo_config(name) dict abort
-  return FugitiveConfigGet(a:name, self.git_dir)
+  return FujjitiveConfigGet(a:name, self.jj_dir)
 endfunction
 
 call s:add_methods('repo',['config'])
@@ -1668,21 +1669,21 @@ function! s:DirCommitFile(path) abort
   if empty(vals)
     return ['', '', '']
   endif
-  return [s:Dir(fugitive#UrlDecode(vals[1])), vals[2], empty(vals[2]) ? '/.git/index' : fugitive#UrlDecode(vals[3])]
+  return [s:Dir(fujjitive#UrlDecode(vals[1])), vals[2], empty(vals[2]) ? '/.jj/index' : fujjitive#UrlDecode(vals[3])]
 endfunction
 
 function! s:DirRev(url) abort
   let [dir, commit, file] = s:DirCommitFile(a:url)
-  return [dir, commit . file ==# '/.git/index' ? ':' : (!empty(dir) && commit =~# '^.$' ? ':' : '') . commit . substitute(file, '^/', ':', '')]
+  return [dir, commit . file ==# '/.jj/index' ? ':' : (!empty(dir) && commit =~# '^.$' ? ':' : '') . commit . substitute(file, '^/', ':', '')]
 endfunction
 
-function! fugitive#Parse(url) abort
+function! fujjitive#Parse(url) abort
   return reverse(s:DirRev(a:url))
 endfunction
 
 let s:merge_heads = ['MERGE_HEAD', 'REBASE_HEAD', 'CHERRY_PICK_HEAD', 'REVERT_HEAD']
 function! s:MergeHead(dir) abort
-  let dir = fugitive#Find('.git/', a:dir)
+  let dir = fujjitive#Find('.jj/', a:dir)
   for head in s:merge_heads
     if filereadable(dir . head)
       return head
@@ -1696,7 +1697,7 @@ function! s:Owner(path, ...) abort
   if empty(dir)
     return ''
   endif
-  let actualdir = fugitive#Find('.git/', dir)
+  let actualdir = fujjitive#Find('.jj/', dir)
   let [pdir, commit, file] = s:DirCommitFile(a:path)
   if s:SameRepo(dir, pdir)
     if commit =~# '^\x\{40,\}$'
@@ -1720,24 +1721,24 @@ function! s:Owner(path, ...) abort
   if s:cpath(actualdir, strpart(path, 0, len(actualdir))) && a:path =~# 'HEAD$'
     return strpart(path, len(actualdir))
   endif
-  let refs = fugitive#Find('.git/refs', dir)
+  let refs = fujjitive#Find('.jj/refs', dir)
   if s:cpath(refs . '/', path[0 : len(refs)]) && path !~# '[\/]$'
     return strpart(path, len(refs) - 4)
   endif
   return ''
 endfunction
 
-function! fugitive#Real(url) abort
+function! fujjitive#Real(url) abort
   if empty(a:url)
     return ''
   endif
   let [dir, commit, file] = s:DirCommitFile(a:url)
   if len(dir)
     let tree = s:Tree(dir)
-    return s:VimSlash((len(tree) ? tree : s:GitDir(dir)) . file)
+    return s:VimSlash((len(tree) ? tree : s:JJDir(dir)) . file)
   endif
   let pre = substitute(matchstr(a:url, '^\a\a\+\ze:'), '^.', '\u&', '')
-  if len(pre) && pre !=? 'fugitive' && exists('*' . pre . 'Real')
+  if len(pre) && pre !=? 'fujjitive' && exists('*' . pre . 'Real')
     let url = {pre}Real(a:url)
   else
     let url = fnamemodify(a:url, ':p' . (a:url =~# '[\/]$' ? '' : ':s?[\/]$??'))
@@ -1745,17 +1746,17 @@ function! fugitive#Real(url) abort
   return s:VimSlash(empty(url) ? a:url : url)
 endfunction
 
-function! fugitive#Path(url, ...) abort
+function! fujjitive#Path(url, ...) abort
   if empty(a:url)
     return ''
   endif
   let repo = call('s:Dir', a:000[1:-1])
-  let dir_s = fugitive#Find('.git/', repo)
-  let tree = fugitive#Find(':/', repo)
+  let dir_s = fujjitive#Find('.jj/', repo)
+  let tree = fujjitive#Find(':/', repo)
   if !a:0
-    return fugitive#Real(a:url)
+    return fujjitive#Real(a:url)
   elseif a:1 =~# '\.$'
-    let path = s:Slash(fugitive#Real(a:url))
+    let path = s:Slash(fujjitive#Real(a:url))
     let cwd = getcwd()
     let lead = ''
     while s:cpath(tree . '/', (cwd . '/')[0 : len(tree)])
@@ -1790,36 +1791,36 @@ function! fugitive#Path(url, ...) abort
     let file = '/'
   endif
   if empty(file) && a:1 =~# '^$\|^[.:]/$'
-    return FugitiveGitPath(fugitive#Real(a:url))
+    return FujjitiveJJPath(fujjitive#Real(a:url))
   endif
   return substitute(file, '^/', '\=a:1', '')
 endfunction
 
 function! s:Relative(...) abort
-  return fugitive#Path(@%, a:0 ? a:1 : ':(top)', a:0 > 1 ? a:2 : s:Dir())
+  return fujjitive#Path(@%, a:0 ? a:1 : ':(top)', a:0 > 1 ? a:2 : s:Dir())
 endfunction
 
-function! fugitive#Find(object, ...) abort
+function! fujjitive#Find(object, ...) abort
   if type(a:object) == type(0)
     let name = bufname(a:object)
     return s:VimSlash(name =~# '^$\|^/\|^\a\+:' ? name : getcwd() . '/' . name)
   elseif a:object =~# '^[~$]'
     let prefix = matchstr(a:object, '^[~$]\i*')
     let owner = expand(prefix)
-    return s:VimSlash(FugitiveVimPath((len(owner) ? owner : prefix) . strpart(a:object, len(prefix))))
+    return s:VimSlash(FujjitiveVimPath((len(owner) ? owner : prefix) . strpart(a:object, len(prefix))))
   endif
   let rev = s:Slash(a:object)
-  if rev =~# '^\a\+://' && rev !~# '^fugitive:'
+  if rev =~# '^\a\+://' && rev !~# '^fujjitive:'
     return rev
   elseif rev =~# '^$\|^/\|^\%(\a\a\+:\).*\%(//\|::\)' . (has('win32') ? '\|^\a:/' : '')
     return s:VimSlash(a:object)
   elseif rev =~# '^\.\.\=\%(/\|$\)'
     return s:VimSlash(simplify(getcwd() . '/' . a:object))
   endif
-  let dir = call('s:GitDir', a:000)
+  let dir = call('s:JJDir', a:000)
   if empty(dir)
     let file = matchstr(a:object, '^\%(:\d:\|[^:]*:\)\zs\%(\.\.\=$\|\.\.\=/.*\|/.*\|\w:/.*\)')
-    let dir = FugitiveExtractGitDir(file)
+    let dir = FujjitiveExtractJJDir(file)
     if empty(dir)
       return ''
     endif
@@ -1827,12 +1828,12 @@ function! fugitive#Find(object, ...) abort
   let tree = s:Tree(dir)
   let urlprefix = s:DirUrlPrefix(dir)
   let base = len(tree) ? tree : urlprefix . '0'
-  if rev ==# '.git'
+  if rev ==# '.jj'
     let f = len(tree) && len(getftype(tree . '/.git')) ? tree . '/.git' : dir
-  elseif rev =~# '^\.git/'
+  elseif rev =~# '^\.jj/'
     let f = strpart(rev, 5)
-    let fdir = simplify(FugitiveActualDir(dir) . '/')
-    let cdir = simplify(FugitiveCommonDir(dir) . '/')
+    let fdir = simplify(FujjitiveActualDir(dir) . '/')
+    let cdir = simplify(FujjitiveCommonDir(dir) . '/')
     if f =~# '^\.\./\.\.\%(/\|$\)'
       let f = simplify(len(tree) ? tree . f[2:-1] : fdir . f)
     elseif f =~# '^\.\.\%(/\|$\)'
@@ -1860,9 +1861,9 @@ function! fugitive#Find(object, ...) abort
     if s:cpath(base . '/', (f . '/')[0 : len(base)])
       let f = s:PathJoin(urlprefix, +matchstr(rev, '^:\zs\d\ze:') . '/' . strpart(f, len(base) + 1))
     else
-      let altdir = FugitiveExtractGitDir(f)
+      let altdir = FujjitiveExtractJJDir(f)
       if len(altdir) && !s:cpath(dir, altdir)
-        return fugitive#Find(a:object, altdir)
+        return fujjitive#Find(a:object, altdir)
       endif
     endif
   elseif rev =~# '^:[0-3]:'
@@ -1887,9 +1888,9 @@ function! fugitive#Find(object, ...) abort
         if s:cpath(base . '/', (file . '/')[0 : len(base)])
           let file = '/' . strpart(file, len(base) + 1)
         else
-          let altdir = FugitiveExtractGitDir(file)
+          let altdir = FujjitiveExtractJJDir(file)
           if len(altdir) && !s:cpath(dir, altdir)
-            return fugitive#Find(a:object, altdir)
+            return fujjitive#Find(a:object, altdir)
           endif
           return file
         endif
@@ -1917,7 +1918,7 @@ endfunction
 
 function! s:Generate(object, ...) abort
   let dir = a:0 ? a:1 : s:Dir()
-  let f = fugitive#Find(a:object, dir)
+  let f = fujjitive#Find(a:object, dir)
   if !empty(f)
     return f
   elseif a:object ==# ':/'
@@ -1936,7 +1937,7 @@ function! s:DotRelative(path, ...) abort
   return a:path
 endfunction
 
-function! fugitive#Object(...) abort
+function! fujjitive#Object(...) abort
   let dir = a:0 > 1 ? s:Dir(a:2) : s:Dir()
   let [fdir, rev] = s:DirRev(a:0 ? a:1 : @%)
   if !s:SameRepo(dir, fdir)
@@ -1946,17 +1947,17 @@ function! fugitive#Object(...) abort
   let full = a:0 ? a:1 : s:BufName('%')
   let full = fnamemodify(full, ':p' . (s:Slash(full) =~# '/$' ? '' : ':s?/$??'))
   if empty(rev) && empty(tree)
-    return FugitiveGitPath(full)
+    return FujjitiveJJPath(full)
   elseif empty(rev)
-    let rev = fugitive#Path(full, './', dir)
+    let rev = fujjitive#Path(full, './', dir)
     if rev =~# '^\./.git\%(/\|$\)'
-      return FugitiveGitPath(full)
+      return FujjitiveJJPath(full)
     endif
   endif
   if rev !~# '^\.\%(/\|$\)' || s:cpath(getcwd(), tree)
     return rev
   else
-    return FugitiveGitPath(tree . rev[1:-1])
+    return FujjitiveJJPath(tree . rev[1:-1])
   endif
 endfunction
 
@@ -2006,9 +2007,9 @@ function! s:ExpandVar(other, var, flags, esc, ...) abort
   elseif a:var =~# '^<'
     let bufnames = [s:BufName(a:var)]
   elseif a:var ==# '##'
-    let bufnames = map(argv(), 'fugitive#Real(v:val)')
+    let bufnames = map(argv(), 'fujjitive#Real(v:val)')
   else
-    let bufnames = [fugitive#Real(s:BufName(a:var))]
+    let bufnames = [fujjitive#Real(s:BufName(a:var))]
   endif
   let files = []
   for bufname in bufnames
@@ -2018,13 +2019,13 @@ function! s:ExpandVar(other, var, flags, esc, ...) abort
       let flag = matchstr(flags, s:flag)
       let flags = strpart(flags, len(flag))
       if flag ==# ':.'
-        let file = s:DotRelative(fugitive#Real(file), cwd)
+        let file = s:DotRelative(fujjitive#Real(file), cwd)
       else
         let file = fnamemodify(file, flag)
       endif
     endwhile
     let file = s:Slash(file)
-    if file =~# '^fugitive://'
+    if file =~# '^fujjitive://'
       let [dir, commit, file_candidate] = s:DirCommitFile(file)
       let tree = s:Tree(dir)
       if len(tree) && len(file_candidate)
@@ -2046,13 +2047,13 @@ else
 endif
 
 function! s:Expand(rev, ...) abort
-  if a:rev =~# '^>' && s:Slash(@%) =~# '^fugitive://' && empty(s:DirCommitFile(@%)[1])
+  if a:rev =~# '^>' && s:Slash(@%) =~# '^fujjitive://' && empty(s:DirCommitFile(@%)[1])
     return s:Slash(@%)
   elseif a:rev =~# '^>\=:[0-3]$'
     let file = len(expand('%')) ? a:rev[-2:-1] . ':%' : '%'
   elseif a:rev =~# '^>\%(:\=/\)\=$'
     let file = '%'
-  elseif a:rev =~# '^>[> ]\@!' && @% !~# '^fugitive:' && s:Slash(@%) =~# '://\|^$'
+  elseif a:rev =~# '^>[> ]\@!' && @% !~# '^fujjitive:' && s:Slash(@%) =~# '://\|^$'
     let file = '%'
   elseif a:rev ==# '>:'
     let file = empty(s:DirCommitFile(@%)[0]) ? ':0:%' : '%'
@@ -2076,7 +2077,7 @@ function! s:Expand(rev, ...) abort
         \ '\=tr(s:ExpandVar(submatch(1),submatch(2),submatch(3),"", a:0 ? a:1 : getcwd()), "\1", " ")', 'g')
 endfunction
 
-function! fugitive#Expand(object) abort
+function! fujjitive#Expand(object) abort
   return substitute(a:object,
         \ '\(\\[' . s:fnameescape . ']\|^\\[>+-]\|' . s:commit_expand . '\|^\~[~.]\)\|' . s:expand,
         \ '\=tr(s:ExpandVar(submatch(1),submatch(2),submatch(3),submatch(5)), "\1", " ")', 'g')
@@ -2112,10 +2113,10 @@ endfunction
 let s:trees = {}
 let s:indexes = {}
 function! s:TreeInfo(dir, commit) abort
-  let key = s:GitDir(a:dir)
+  let key = s:JJDir(a:dir)
   if a:commit =~# '^:\=[0-3]$'
     let index = get(s:indexes, key, [])
-    let newftime = getftime(fugitive#Find('.git/index', a:dir))
+    let newftime = getftime(fujjitive#Find('.jj/index', a:dir))
     if get(index, 0, -2) < newftime
       let [lines, exec_error] = s:LinesError([a:dir, 'ls-files', '--stage', '--'])
       let s:indexes[key] = [newftime, {'0': {}, '1': {}, '2': {}, '3': {}}]
@@ -2161,7 +2162,7 @@ endfunction
 
 function! s:PathInfo(url) abort
   let [dir, commit, file] = s:DirCommitFile(a:url)
-  if empty(dir) || !get(g:, 'fugitive_file_api', 1)
+  if empty(dir) || !get(g:, 'fujjitive_file_api', 1)
     return [-1, '000000', '', '', -1]
   endif
   let path = substitute(file[1:-1], '/*$', '', '')
@@ -2174,12 +2175,12 @@ function! s:PathInfo(url) abort
   endif
 endfunction
 
-function! fugitive#simplify(url) abort
+function! fujjitive#simplify(url) abort
   let [dir, commit, file] = s:DirCommitFile(a:url)
   if empty(dir)
     return ''
   elseif empty(commit)
-    return s:VimSlash(s:DirUrlPrefix(simplify(s:GitDir(dir))))
+    return s:VimSlash(s:DirUrlPrefix(simplify(s:JJDir(dir))))
   endif
   if file =~# '/\.\.\%(/\|$\)'
     let tree = s:Tree(dir)
@@ -2190,23 +2191,23 @@ function! fugitive#simplify(url) abort
       endif
     endif
   endif
-  return s:VimSlash(s:PathJoin(s:DirUrlPrefix(simplify(s:GitDir(dir))), commit . simplify(file)))
+  return s:VimSlash(s:PathJoin(s:DirUrlPrefix(simplify(s:JJDir(dir))), commit . simplify(file)))
 endfunction
 
-function! fugitive#resolve(url) abort
-  let url = fugitive#simplify(a:url)
-  if url =~? '^fugitive:'
+function! fujjitive#resolve(url) abort
+  let url = fujjitive#simplify(a:url)
+  if url =~? '^fujjitive:'
     return url
   else
     return resolve(url)
   endif
 endfunction
 
-function! fugitive#getftime(url) abort
+function! fujjitive#getftime(url) abort
   return s:PathInfo(a:url)[0]
 endfunction
 
-function! fugitive#getfsize(url) abort
+function! fujjitive#getfsize(url) abort
   let entry = s:PathInfo(a:url)
   if entry[4] == -2 && entry[2] ==# 'blob' && len(entry[3])
     let dir = s:DirCommitFile(a:url)[0]
@@ -2215,27 +2216,27 @@ function! fugitive#getfsize(url) abort
   return entry[4]
 endfunction
 
-function! fugitive#getftype(url) abort
+function! fujjitive#getftype(url) abort
   return get({'tree': 'dir', 'blob': 'file'}, s:PathInfo(a:url)[2], '')
 endfunction
 
-function! fugitive#filereadable(url) abort
+function! fujjitive#filereadable(url) abort
   return s:PathInfo(a:url)[2] ==# 'blob'
 endfunction
 
-function! fugitive#filewritable(url) abort
+function! fujjitive#filewritable(url) abort
   let [dir, commit, file] = s:DirCommitFile(a:url)
-  if commit !~# '^\d$' || !filewritable(fugitive#Find('.git/index', dir))
+  if commit !~# '^\d$' || !filewritable(fujjitive#Find('.jj/index', dir))
     return 0
   endif
   return s:PathInfo(a:url)[2] ==# 'blob' ? 1 : 2
 endfunction
 
-function! fugitive#isdirectory(url) abort
+function! fujjitive#isdirectory(url) abort
   return s:PathInfo(a:url)[2] ==# 'tree'
 endfunction
 
-function! fugitive#getfperm(url) abort
+function! fujjitive#getfperm(url) abort
   let [dir, commit, file] = s:DirCommitFile(a:url)
   let perm = getfperm(dir)
   let fperm = s:PathInfo(a:url)[1]
@@ -2260,10 +2261,10 @@ function! s:UpdateIndex(dir, info) abort
   return !exec_error ? '' : len(error) ? error : 'unknown update-index error'
 endfunction
 
-function! fugitive#setfperm(url, perm) abort
+function! fujjitive#setfperm(url, perm) abort
   let [dir, commit, file] = s:DirCommitFile(a:url)
   let entry = s:PathInfo(a:url)
-  let perm = fugitive#getfperm(a:url)
+  let perm = fujjitive#getfperm(a:url)
   if commit !~# '^\d$' || entry[2] !=# 'blob' ||
       \ substitute(perm, 'x', '-', 'g') !=# substitute(a:perm, 'x', '-', 'g')
     return -2
@@ -2280,7 +2281,7 @@ function! s:BlobTemp(url) abort
   if empty(file)
     return ''
   endif
-  let key = s:GitDir(dir)
+  let key = s:JJDir(dir)
   if !has_key(s:blobdirs, key)
     let s:blobdirs[key] = tempname()
   endif
@@ -2297,7 +2298,7 @@ function! s:BlobTemp(url) abort
   endif
   if commit =~# '^\d$' || !filereadable(tempfile)
     let rev = s:DirRev(a:url)[1]
-    let blob_or_filters = fugitive#GitVersion(2, 11) ? '--filters' : 'blob'
+    let blob_or_filters = fujjitive#GitVersion(2, 11) ? '--filters' : 'blob'
     let exec_error = s:StdoutToFile(tempfile, [dir, 'cat-file', blob_or_filters, rev])[1]
     if exec_error
       call delete(tempfile)
@@ -2307,7 +2308,7 @@ function! s:BlobTemp(url) abort
   return s:Resolve(tempfile)
 endfunction
 
-function! fugitive#readfile(url, ...) abort
+function! fujjitive#readfile(url, ...) abort
   let entry = s:PathInfo(a:url)
   if entry[2] !=# 'blob'
     return []
@@ -2319,17 +2320,17 @@ function! fugitive#readfile(url, ...) abort
   return call('readfile', [temp] + a:000)
 endfunction
 
-function! fugitive#writefile(lines, url, ...) abort
+function! fujjitive#writefile(lines, url, ...) abort
   let url = type(a:url) ==# type('') ? a:url : ''
   let [dir, commit, file] = s:DirCommitFile(url)
   let entry = s:PathInfo(url)
   if commit =~# '^\d$' && entry[2] !=# 'tree'
     let temp = tempname()
     if a:0 && a:1 =~# 'a' && entry[2] ==# 'blob'
-      call writefile(fugitive#readfile(url, 'b'), temp, 'b')
+      call writefile(fujjitive#readfile(url, 'b'), temp, 'b')
     endif
     call call('writefile', [a:lines, temp] + a:000)
-    let hash = s:ChompDefault('', [dir, '--literal-pathspecs', 'hash-object', '-w', FugitiveGitPath(temp)])
+    let hash = s:ChompDefault('', [dir, '', 'hash-object', '-w', FujjitiveJJPath(temp)])
     let mode = entry[1] !=# '000000' ? entry[1] : '100644'
     if hash =~# '^\x\{40,\}$'
       let error = s:UpdateIndex(dir, [mode, hash, commit, file[1:-1]])
@@ -2349,15 +2350,15 @@ let s:globsubs = {
       \ '/*': '/[^/.][^/]*',
       \ '*': '[^/]*',
       \ '?': '[^/]'}
-function! fugitive#glob(url, ...) abort
+function! fujjitive#glob(url, ...) abort
   let [repo, commit, glob] = s:DirCommitFile(a:url)
-  let dirglob = s:GitDir(repo)
+  let dirglob = s:JJDir(repo)
   let append = matchstr(glob, '/*$')
   let glob = substitute(glob, '/*$', '', '')
   let pattern = '^' . substitute(glob, '/\=\*\*/\=\|/\=\*\|[.?\$]\|^^', '\=get(s:globsubs, submatch(0), "\\" . submatch(0))', 'g')[1:-1] . '$'
   let results = []
   for dir in dirglob =~# '[*?]' ? split(glob(dirglob), "\n") : [dirglob]
-    if empty(dir) || !get(g:, 'fugitive_file_api', 1) || !filereadable(fugitive#Find('.git/HEAD', dir))
+    if empty(dir) || !get(g:, 'fujjitive_file_api', 1) || !filereadable(fujjitive#Find('.jj/HEAD', dir))
       continue
     endif
     let files = items(s:TreeInfo(dir, commit)[0])
@@ -2378,7 +2379,7 @@ function! fugitive#glob(url, ...) abort
   endif
 endfunction
 
-function! fugitive#delete(url, ...) abort
+function! fujjitive#delete(url, ...) abort
   let [dir, commit, file] = s:DirCommitFile(a:url)
   if a:0 && len(a:1) || commit !~# '^\d$'
     return -1
@@ -2416,7 +2417,7 @@ function! s:GlobComplete(lead, pattern, ...) abort
   return results
 endfunction
 
-function! fugitive#CompletePath(base, ...) abort
+function! fujjitive#CompletePath(base, ...) abort
   let dir = a:0 == 1 ? a:1 : a:0 >= 3 ? a:3 : s:Dir()
   let stripped = matchstr(a:base, '^\%(:/:\=\|:(top)\|:(top,literal)\|:(literal,top)\)')
   let base = strpart(a:base, len(stripped))
@@ -2432,16 +2433,16 @@ function! fugitive#CompletePath(base, ...) abort
     let stripped = matchstr(a:base, '^\%(:(literal)\|:\)')
     let base = strpart(a:base, len(stripped))
   endif
-  if base =~# '^\.git/' && len(dir)
+  if base =~# '^\.jj/' && len(dir)
     let pattern = s:gsub(base[5:-1], '/', '*&').'*'
-    let fdir = fugitive#Find('.git/', dir)
+    let fdir = fujjitive#Find('.jj/', dir)
     let matches = s:GlobComplete(fdir, pattern)
-    let cdir = fugitive#Find('.git/refs', dir)[0 : -5]
+    let cdir = fujjitive#Find('.jj/refs', dir)[0 : -5]
     if len(cdir) && s:cpath(fdir) !=# s:cpath(cdir)
       call extend(matches, s:GlobComplete(cdir, pattern))
     endif
     call s:Uniq(matches)
-    call map(matches, "'.git/' . v:val")
+    call map(matches, "'.jj/' . v:val")
   elseif base =~# '^\~/'
     let matches = map(s:GlobComplete(expand('~/'), base[2:-1] . '*'), '"~/" . v:val')
   elseif a:base =~# '^/\|^\a\+:\|^\.\.\=/'
@@ -2455,20 +2456,20 @@ function! fugitive#CompletePath(base, ...) abort
   return matches
 endfunction
 
-function! fugitive#PathComplete(...) abort
-  return call('fugitive#CompletePath', a:000)
+function! fujjitive#PathComplete(...) abort
+  return call('fujjitive#CompletePath', a:000)
 endfunction
 
 function! s:CompleteHeads(dir) abort
   if empty(a:dir)
     return []
   endif
-  let dir = fugitive#Find('.git/', a:dir)
+  let dir = fujjitive#Find('.jj/', a:dir)
   return sort(filter(['HEAD', 'FETCH_HEAD', 'ORIG_HEAD'] + s:merge_heads, 'filereadable(dir . v:val)')) +
         \ sort(s:LinesError([a:dir, 'rev-parse', '--symbolic', '--branches', '--tags', '--remotes'])[0])
 endfunction
 
-function! fugitive#CompleteObject(base, ...) abort
+function! fujjitive#CompleteObject(base, ...) abort
   let dir = a:0 == 1 ? a:1 : a:0 >= 3 ? a:3 : s:Dir()
   let tree = s:Tree(dir)
   let cwd = getcwd()
@@ -2483,18 +2484,18 @@ function! fugitive#CompleteObject(base, ...) abort
   elseif base =~# '^\.\=/\|^:(' || base !~# ':'
     let results = []
     if base =~# '^refs/'
-      let cdir = fugitive#Find('.git/refs', dir)[0 : -5]
+      let cdir = fujjitive#Find('.jj/refs', dir)[0 : -5]
       let results += map(s:GlobComplete(cdir, base . '*'), 's:Slash(v:val)')
       call map(results, 's:fnameescape(v:val)')
     elseif base !~# '^\.\=/\|^:('
       let heads = s:CompleteHeads(dir)
-      if filereadable(fugitive#Find('.git/refs/stash', dir))
+      if filereadable(fujjitive#Find('.jj/refs/stash', dir))
         let heads += ["stash"]
         let heads += sort(s:LinesError(["stash","list","--pretty=format:%gd"], dir)[0])
       endif
       let results += s:FilterEscape(heads, fnameescape(base))
     endif
-    let results += a:0 == 1 || a:0 >= 3 ? fugitive#CompletePath(base, 0, '', dir, a:0 >= 4 ? a:4 : tree) : fugitive#CompletePath(base)
+    let results += a:0 == 1 || a:0 >= 3 ? fujjitive#CompletePath(base, 0, '', dir, a:0 >= 4 ? a:4 : tree) : fujjitive#CompletePath(base)
     return results
 
   elseif base =~# '^:'
@@ -2520,11 +2521,11 @@ endfunction
 function! s:CompleteSub(subcommand, A, L, P, ...) abort
   let pre = strpart(a:L, 0, a:P)
   if pre =~# ' -- '
-    return fugitive#CompletePath(a:A)
+    return fujjitive#CompletePath(a:A)
   elseif a:A =~# '^-' || a:A is# 0
     return s:FilterEscape(split(s:ChompDefault('', [a:subcommand, '--git-completion-helper']), ' '), a:A)
   elseif !a:0
-    return fugitive#CompleteObject(a:A, s:Dir())
+    return fujjitive#CompleteObject(a:A, s:Dir())
   elseif type(a:1) == type(function('tr'))
     return call(a:1, [a:A, a:L, a:P] + (a:0 > 1 ? a:2 : []))
   else
@@ -2551,9 +2552,9 @@ endfunction
 
 " Section: Buffer auto-commands
 
-augroup fugitive_dummy_events
+augroup fujjitive_dummy_events
   autocmd!
-  autocmd User Fugitive* "
+  autocmd User Fujjitive* "
   autocmd BufWritePre,FileWritePre,FileWritePost * "
   autocmd BufNewFile * "
   autocmd QuickfixCmdPre,QuickfixCmdPost * "
@@ -2563,7 +2564,7 @@ function! s:ReplaceCmd(cmd) abort
   let temp = tempname()
   let [err, exec_error] = s:StdoutToFile(temp, a:cmd)
   if exec_error
-    throw 'fugitive: ' . (len(err) ? substitute(err, "\n$", '', '') : 'unknown error running ' . string(a:cmd))
+    throw 'fujjitive: ' . (len(err) ? substitute(err, "\n$", '', '') : 'unknown error running ' . string(a:cmd))
   endif
   setlocal noswapfile
   silent exe 'lockmarks keepalt noautocmd 0read ++edit' s:fnameescape(temp)
@@ -2623,7 +2624,7 @@ function! s:AddDiffSection(to, stat, label, files) abort
   endif
   let diff_section = a:stat.diff[a:label]
   let expanded = a:stat.expanded[a:label]
-  let was_expanded = get(getbufvar(a:stat.bufnr, 'fugitive_expanded', {}), a:label, {})
+  let was_expanded = get(getbufvar(a:stat.bufnr, 'fujjitive_expanded', {}), a:label, {})
   call extend(a:to.lines, ['', a:label . ' (' . len(a:files) . ')'])
   for file in a:files
     call add(a:to.lines, s:Format(file))
@@ -2679,22 +2680,22 @@ let s:rebase_abbrevs = {
       \ }
 
 function! s:MapStatus() abort
-  call fugitive#MapJumps()
+  call fujjitive#MapJumps()
   call s:Map('n', '-', ":<C-U>execute <SID>Do('Toggle',0)<CR>", '<silent>')
   call s:Map('x', '-', ":<C-U>execute <SID>Do('Toggle',1)<CR>", '<silent>')
-  call s:Map('n', 's', ":<C-U>execute <SID>Do('Stage',0)<CR>", '<silent>')
-  call s:Map('x', 's', ":<C-U>execute <SID>Do('Stage',1)<CR>", '<silent>')
-  call s:Map('n', 'u', ":<C-U>execute <SID>Do('Unstage',0)<CR>", '<silent>')
-  call s:Map('x', 'u', ":<C-U>execute <SID>Do('Unstage',1)<CR>", '<silent>')
-  call s:Map('n', 'U', ":<C-U>Git reset -q<CR>", '<silent>')
+  " s = split: use jj split to move file into a new change (similar to staging)
+  call s:Map('n', 's', ":<C-U>execute <SID>Do('Split',0)<CR>", '<silent>')
+  call s:Map('x', 's', ":<C-U>execute <SID>Do('Split',1)<CR>", '<silent>')
+  " u = unsplit: use jj squash to move file back (similar to unstaging)
+  call s:Map('n', 'u', ":<C-U>execute <SID>Do('Squash',0)<CR>", '<silent>')
+  call s:Map('x', 'u', ":<C-U>execute <SID>Do('Squash',1)<CR>", '<silent>')
+  " U = restore all changes (discard working copy changes)
+  call s:Map('n', 'U', ":<C-U>JJ restore<CR>", '<silent>')
   call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Unstaged')")
   call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Unstaged', 'Untracked')")
-  call s:MapMotion('gs', "exe <SID>StageJump(v:count, 'Staged')")
   call s:MapMotion('gp', "exe <SID>StageJump(v:count, 'Unpushed')")
   call s:MapMotion('gP', "exe <SID>StageJump(v:count, 'Unpulled')")
-  call s:MapMotion('gr', "exe <SID>StageJump(v:count, 'Rebasing')")
-  call s:Map('n', 'C', ":echoerr 'fugitive: C has been removed in favor of cc'<CR>", '<silent><unique>')
-  call s:Map('n', 'a', ":echoerr 'fugitive: a has been removed in favor of s'<CR>", '<silent><unique>')
+  call s:Map('n', 'C', ":echoerr 'fujjitive: C has been removed in favor of cc'<CR>", '<silent><unique>')
   call s:Map('n', 'i', ":<C-U>execute <SID>NextExpandedHunk(v:count1)<CR>", '<silent>')
   call s:Map('n', "=", ":<C-U>execute <SID>StageInline('toggle',line('.'),v:count)<CR>", '<silent>')
   call s:Map('n', "<", ":<C-U>execute <SID>StageInline('hide',  line('.'),v:count)<CR>", '<silent>')
@@ -2702,16 +2703,17 @@ function! s:MapStatus() abort
   call s:Map('x', "=", ":<C-U>execute <SID>StageInline('toggle',line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>", '<silent>')
   call s:Map('x', "<", ":<C-U>execute <SID>StageInline('hide',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>", '<silent>')
   call s:Map('x', ">", ":<C-U>execute <SID>StageInline('show',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>", '<silent>')
-  call s:Map('n', 'D', ":echoerr 'fugitive: D has been removed in favor of dd'<CR>", '<silent><unique>')
+  call s:Map('n', 'D', ":echoerr 'fujjitive: D has been removed in favor of dd'<CR>", '<silent><unique>')
   call s:Map('n', 'dd', ":<C-U>execute <SID>StageDiff('Gdiffsplit')<CR>", '<silent>')
   call s:Map('n', 'dh', ":<C-U>execute <SID>StageDiff('Ghdiffsplit')<CR>", '<silent>')
   call s:Map('n', 'ds', ":<C-U>execute <SID>StageDiff('Ghdiffsplit')<CR>", '<silent>')
   call s:Map('n', 'dp', ":<C-U>execute <SID>StageDiffEdit()<CR>", '<silent>')
   call s:Map('n', 'dv', ":<C-U>execute <SID>StageDiff('Gvdiffsplit')<CR>", '<silent>')
-  call s:Map('n', 'd?', ":<C-U>help fugitive_d<CR>", '<silent>')
-  call s:Map('n', 'P', ":<C-U>execute <SID>StagePatch(line('.'),line('.')+v:count1-1)<CR>", '<silent>')
-  call s:Map('x', 'P', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"))<CR>", '<silent>')
-  call s:Map('n', 'p', ":<C-U>if v:count<Bar>silent exe <SID>GF('pedit')<Bar>else<Bar>echoerr 'Use = for inline diff, I for :Git add/reset --patch, 1p for :pedit'<Bar>endif<CR>", '<silent>')
+  call s:Map('n', 'd?', ":<C-U>help fujjitive_d<CR>", '<silent>')
+  " S = interactive split (like jj split --interactive)
+  call s:Map('n', 'S', ":<C-U>execute <SID>StagePatch(line('.'),line('.')+v:count1-1)<CR>", '<silent>')
+  call s:Map('x', 'S', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"))<CR>", '<silent>')
+  call s:Map('n', 'p', ":<C-U>if v:count<Bar>silent exe <SID>GF('pedit')<Bar>else<Bar>echoerr 'Use = for inline diff, S for :JJ split --interactive, 1p for :pedit'<Bar>endif<CR>", '<silent>')
   call s:Map('x', 'p', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"))<CR>", '<silent>')
   call s:Map('n', 'I', ":<C-U>execute <SID>StagePatch(line('.'),line('.'), 1)<CR>", '<silent>')
   call s:Map('x', 'I', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"), 1)<CR>", '<silent>')
@@ -2719,6 +2721,7 @@ function! s:MapStatus() abort
   call s:Map('n', 'R', ":echohl WarningMsg<Bar>echo 'Reloading is automatic.  Use :e to force'<Bar>echohl NONE<CR>", '<silent>')
   call s:Map('n', 'g<Bar>', ":<C-U>echoerr 'Changed to X'<CR>", '<silent><unique>')
   call s:Map('x', 'g<Bar>', ":<C-U>echoerr 'Changed to X'<CR>", '<silent><unique>')
+  " X = restore (discard changes for file, like jj restore --paths)
   call s:Map('n', 'X', ":<C-U>execute <SID>StageDelete(line('.'), 0, v:count)<CR>", '<silent>')
   call s:Map('x', 'X', ":<C-U>execute <SID>StageDelete(line(\"'<\"), line(\"'>\"), v:count)<CR>", '<silent>')
   call s:Map('n', 'gI', ":<C-U>execute <SID>StageIgnore(line('.'), line('.'), v:count)<CR>", '<silent>')
@@ -2737,94 +2740,49 @@ function! s:StatusProcess(result, stat) abort
     let stat.props = {}
 
     if empty(status_exec)
-      let stat.branch = FugitiveHead(0, config)
+      let stat.branch = FujjitiveHead(0, config)
 
     elseif status_exec.exit_status
       let stat.error = s:JoinChomp(status_exec.stderr)
       return
 
-    elseif status_exec.args[-1] ==# '--porcelain=v2'
-      let output = split(tr(join(status_exec.stdout, "\1"), "\1\n", "\n\1"), "\1", 1)[0:-2]
-      let i = 0
-      while i < len(output)
-        let line = output[i]
-        let prop = matchlist(line, '# \(\S\+\) \(.*\)')
-        if len(prop)
-          let stat.props[prop[1]] = prop[2]
-        elseif line[0] ==# '?'
-          call add(untracked, {'type': 'File', 'status': line[0], 'filename': line[2:-1], 'relative': [line[2:-1]]})
-        elseif line[0] !=# '#'
-          if line[0] ==# 'u'
-            let file = matchstr(line, '^.\{37\} \x\{40,\} \x\{40,\} \x\{40,\} \zs.*$')
-          else
-            let file = matchstr(line, '^.\{30\} \x\{40,\} \x\{40,\} \zs.*$')
-          endif
-          if line[0] ==# '2'
-            let i += 1
-            let file = matchstr(file, ' \zs.*')
-            let relative = [file, output[i]]
-          else
-            let relative = [file]
-          endif
-          let filename = join(reverse(copy(relative)), ' -> ')
-          let sub = matchstr(line, '^[12u] .. \zs....')
-          if line[2] !=# '.'
-            call add(staged, {'type': 'File', 'status': line[2], 'filename': filename, 'relative': relative, 'submodule': sub})
-          endif
-          if line[3] !=# '.'
-            let sub = matchstr(line, '^[12u] .. \zs....')
-            call add(unstaged, {'type': 'File', 'status': get({'C':'M','M':'?','U':'?'}, matchstr(sub, 'S\.*\zs[CMU]'), line[3]), 'filename': file, 'relative': [file], 'submodule': sub})
-          endif
-        endif
-        let i += 1
-      endwhile
-      let stat.branch = substitute(get(stat.props, 'branch.head', '(unknown)'), '\C^(\%(detached\|unknown\))$', '', '')
-
     else
-      let output = split(tr(join(status_exec.stdout, "\1"), "\1\n", "\n\1"), "\1", 1)[0:-2]
-      while get(output, 0, '') =~# '^\l\+:'
-        call remove(output, 0)
-      endwhile
-      let branch = matchstr(output[0], '^## \zs\S\+\ze\%($\| \[\)')
-      if branch =~# '\.\.\.'
-        let stat.branch = split(branch, '\.\.\.')[0]
-      else
-        let stat.branch = branch ==# 'HEAD' ? '' : branch
-      endif
-
+      " Parse jj status output
+      " JJ status output format:
+      " Working copy changes:
+      " M filename
+      " A filename
+      " D filename
+      let output = status_exec.stdout
       let i = 0
+      let in_working_copy = 0
       while i < len(output)
         let line = output[i]
-        let file = line[3:-1]
-        let i += 1
-        if line[2] !=# ' '
-          continue
-        endif
-        if line[0:1] =~# '[RC]'
-          let relative = [file, output[i]]
-          let i += 1
-        else
+        if line =~# '^Working copy changes:'
+          let in_working_copy = 1
+        elseif line =~# '^Working copy\s*:'
+          let stat.props['working_copy'] = matchstr(line, ':\s*\zs.*')
+        elseif line =~# '^Parent commit\s*:'
+          let stat.props['parent_commit'] = matchstr(line, ':\s*\zs.*')
+        elseif in_working_copy && line =~# '^\([MADR]\) '
+          let status = line[0]
+          let file = line[2:-1]
           let relative = [file]
+          let filename = file
+          " JJ has no staging area, so all changes go into 'Unstaged'
+          call add(unstaged, {'type': 'File', 'status': status, 'filename': filename, 'relative': relative, 'submodule': ''})
+        elseif in_working_copy && line =~# '^\s*$'
+          let in_working_copy = 0
         endif
-        let filename = join(reverse(copy(relative)), ' -> ')
-        if line[0] !~# '[ ?!#]'
-          call add(staged, {'type': 'File', 'status': line[0], 'filename': filename, 'relative': relative, 'submodule': ''})
-        endif
-        if line[0:1] ==# '??'
-          call add(untracked, {'type': 'File', 'status': line[1], 'filename': filename, 'relative': relative})
-        elseif line[1] !~# '[ !#]'
-          call add(unstaged, {'type': 'File', 'status': line[1], 'filename': file, 'relative': [file], 'submodule': ''})
-        endif
+        let i += 1
       endwhile
+      let stat.branch = get(stat.props, 'working_copy', '')
     endif
 
-    let diff_cmd = stat.cmd + ['-c', 'diff.suppressBlankEmpty=false', '-c', 'core.quotePath=false', 'diff', '--color=never', '--no-ext-diff', '--no-prefix']
+    let diff_cmd = stat.cmd + ['diff', '--color=never']
     let stat.diff = {'Staged': {'stdout': ['']}, 'Unstaged': {'stdout': ['']}}
-    if len(staged)
-      let stat.diff['Staged'] = fugitive#Execute(diff_cmd + ['--cached'], function('len'))
-    endif
     if len(unstaged)
-      let stat.diff['Unstaged'] = fugitive#Execute(diff_cmd + ['--'] + map(copy(unstaged), 'stat.work_tree . "/" . v:val.relative[0]'), function('len'))
+      let stat.diff['Unstaged'] = fujjitive#Execute(diff_cmd, function('len'))
     endif
 
     let [stat.staged, stat.unstaged, stat.untracked] = [staged, unstaged, untracked]
@@ -2856,9 +2814,9 @@ function! s:StatusProcess(result, stat) abort
       let stat.merge = config.Get('branch.' . branch . '.merge')
     endif
 
-    let push_default = FugitiveConfigGet('push.default', config)
+    let push_default = FujjitiveConfigGet('push.default', config)
     if empty(push_default)
-      let push_default = fugitive#GitVersion(2) ? 'simple' : 'matching'
+      let push_default = fujjitive#GitVersion(2) ? 'simple' : 'matching'
     endif
     if push_default ==# 'upstream'
       let stat.push = stat.merge
@@ -2870,9 +2828,9 @@ function! s:StatusProcess(result, stat) abort
 
     let stat.pull_type = 'Pull'
     if len(stat.merge)
-      let rebase = FugitiveConfigGet('branch.' . branch . '.rebase', config)
+      let rebase = FujjitiveConfigGet('branch.' . branch . '.rebase', config)
       if empty(rebase)
-        let rebase = FugitiveConfigGet('pull.rebase', config)
+        let rebase = FujjitiveConfigGet('pull.rebase', config)
       endif
       if rebase =~# '^\%(true\|yes\|on\|1\|interactive\|merges\|preserve\)$'
         let stat.pull_type = 'Rebase'
@@ -2886,134 +2844,27 @@ endfunction
 function! s:StatusRender(stat) abort
   try
     let stat = a:stat
-    call fugitive#Wait(stat.running)
+    call fujjitive#Wait(stat.running)
     if has_key(stat, 'error')
-      return 'echoerr ' . string('fugitive: ' . stat.error)
+      return 'echoerr ' . string('fujjitive: ' . stat.error)
     endif
-    let [staged, unstaged, untracked, config] = [stat.staged, stat.unstaged, stat.untracked, stat.config]
+    let [unstaged, untracked, config] = [stat.unstaged, stat.untracked, stat.config]
     let dir = s:Dir(config)
 
-    let pull_ref = stat.merge
-    if stat.fetch_remote !=# '.'
-      let pull_ref = substitute(pull_ref, '^refs/heads/', 'refs/remotes/' . stat.fetch_remote . '/', '')
-    endif
-
-    let push_ref = stat.push
-    if stat.push_remote !=# '.'
-      let push_ref = substitute(push_ref, '^refs/heads/', 'refs/remotes/' . stat.push_remote . '/', '')
-    endif
-
-    let push_short = substitute(push_ref, '^refs/\w\+/', '', '')
-    let pull_short = substitute(pull_ref, '^refs/\w\+/', '', '')
-
-    if isdirectory(fugitive#Find('.git/rebase-merge/', dir))
-      let rebasing_dir = fugitive#Find('.git/rebase-merge/', dir)
-    elseif isdirectory(fugitive#Find('.git/rebase-apply/', dir))
-      let rebasing_dir = fugitive#Find('.git/rebase-apply/', dir)
-    endif
-
-    call fugitive#Wait(stat.rev_parse)
-    let head = empty(stat.branch) ? stat.rev_parse.stdout[0] : stat.branch
-
-    let rebasing = []
-    let rebasing_head = 'detached HEAD'
-    if exists('rebasing_dir') && filereadable(rebasing_dir . 'git-rebase-todo')
-      let rebasing_head = substitute(readfile(rebasing_dir . 'head-name')[0], '\C^refs/heads/', '', '')
-      let len = len(stat.rev_parse.stdout[0])
-      let lines = readfile(rebasing_dir . 'git-rebase-todo')
-      if getfsize(rebasing_dir . 'done') > 0
-        let done = readfile(rebasing_dir . 'done')
-        call map(done, 'substitute(v:val, ''^\l\+\>'', "done", "")')
-        let done[-1] = substitute(done[-1], '^\l\+\>', 'stop', '')
-        let lines = done + lines
-      endif
-      call reverse(lines)
-      for line in lines
-        let match = matchlist(line, '^\(\l\+\)\s\+\(\x\{4,\}\)\s\+\(.*\)')
-        if len(match) && match[1] !~# 'exec\|merge\|label'
-          call add(rebasing, {'type': 'Rebase', 'status': get(s:rebase_abbrevs, match[1], match[1]), 'commit': strpart(match[2], 0, len), 'subject': match[3]})
-        endif
-      endfor
-    endif
-
-    let sequencing = []
-    try
-      let sequencer_todo = reverse(readfile(fugitive#Find('.git/sequencer/todo', dir)))
-    catch
-    endtry
-    if exists('sequencer_todo')
-      for line in sequencer_todo
-        let match = matchlist(line, '^\(\l\+\)\s\+\(\x\{4,\}\)\s\+\(.*\)')
-        if len(match) && match[1] !~# 'exec\|merge\|label'
-          call add(sequencing, {'type': 'Rebase', 'status': get(s:rebase_abbrevs, match[1], match[1]), 'commit': match[2], 'subject': match[3]})
-        endif
-      endfor
-    else
-      try
-        let merge_msg = get(readfile(fugitive#Find('.git/MERGE_MSG', dir)), 0, '')
-      catch
-      endtry
-    endif
-    if exists('merge_msg')
-      if filereadable(fugitive#Find('.git/CHERRY_PICK_HEAD', dir))
-        let pick_head = fugitive#Execute(['rev-parse', '--short', 'CHERRY_PICK_HEAD', '--'], dir).stdout[0]
-        if !empty(pick_head)
-          call add(sequencing, {'type': 'Rebase', 'status': 'pick', 'commit': pick_head, 'subject': merge_msg})
-        endif
-      elseif filereadable(fugitive#Find('.git/REVERT_HEAD', dir))
-        let pick_head = fugitive#Execute(['rev-parse', '--short', 'REVERT_HEAD', '--'], dir).stdout[0]
-        if !empty(pick_head)
-          call add(sequencing, {'type': 'Rebase', 'status': 'revert', 'commit': pick_head, 'subject': merge_msg})
-        endif
-      endif
-    endif
+    call fujjitive#Wait(stat.rev_parse)
+    let head = empty(stat.branch) ? get(stat.rev_parse.stdout, 0, '(unknown)') : stat.branch
 
     let stat.expanded = {'Staged': {}, 'Unstaged': {}}
     let to = {'lines': []}
-    call s:AddHeader(to, 'Head', head)
-    call s:AddHeader(to, stat.pull_type, pull_short)
-    if push_ref !=# pull_ref
-      call s:AddHeader(to, 'Push', push_short)
-    endif
+    call s:AddHeader(to, 'Working copy', head)
+    call s:AddHeader(to, 'Parent', get(stat.props, 'parent_commit', ''))
     if empty(stat.work_tree)
-      if get(fugitive#ConfigGetAll('core.bare', config), 0, '') !~# '^\%(false\|no|off\|0\|\)$'
-        call s:AddHeader(to, 'Bare', 'yes')
-      else
-        call s:AddHeader(to, 'Error', s:worktree_error)
-      endif
+      call s:AddHeader(to, 'Error', s:worktree_error)
     endif
-    if get(fugitive#ConfigGetAll('advice.statusHints', config), 0, 'true') !~# '^\%(false\|no|off\|0\|\)$'
-      call s:AddHeader(to, 'Help', 'g?')
-    endif
+    call s:AddHeader(to, 'Help', 'g?')
 
-    call s:AddSection(to, 'Rebasing ' . rebasing_head, rebasing)
-    call s:AddSection(to, get(get(sequencing, 0, {}), 'status', '') ==# 'revert' ? 'Reverting' : 'Cherry Picking', sequencing)
     call s:AddSection(to, 'Untracked', untracked)
     call s:AddDiffSection(to, stat, 'Unstaged', unstaged)
-    call s:AddDiffSection(to, stat, 'Staged', staged)
-
-    let unique_push_ref = push_ref ==# pull_ref ? '' : push_ref
-    let unpushed_push = s:QueryLogRange(unique_push_ref, head, dir)
-    if get(stat.props, 'branch.ab') =~# '^+0 '
-      let unpushed_pull = {'error': 0, 'overflow': 0, 'entries': []}
-    else
-      let unpushed_pull = s:QueryLogRange(pull_ref, head, dir)
-    endif
-    " If the push ref is defined but nowhere to be found at the remote,
-    " pretend it's the same as the pull ref
-    if unpushed_push.error == 1
-      let unpushed_push = unpushed_pull
-    endif
-    call s:AddLogSection(to, 'Unpushed to ' . push_short, unpushed_push)
-    call s:AddLogSection(to, 'Unpushed to ' . pull_short, unpushed_pull)
-    if unpushed_push.error && unpushed_pull.error && empty(rebasing) &&
-          \ !empty(stat.push_remote . stat.fetch_remote)
-      call s:AddLogSection(to, 'Unpushed to *', s:QueryLog([head, '--not', '--remotes'], 256, dir))
-    endif
-    call s:AddLogSection(to, 'Unpulled from ' . push_short, s:QueryLogRange(head, unique_push_ref, dir))
-    if len(pull_ref) && get(stat.props, 'branch.ab') !~# ' -0$'
-      call s:AddLogSection(to, 'Unpulled from ' . pull_short, s:QueryLogRange(head, pull_ref, dir))
-    endif
 
     let bufnr = stat.bufnr
     setlocal noreadonly modifiable
@@ -3021,54 +2872,47 @@ function! s:StatusRender(stat) abort
       silent keepjumps execute (len(to.lines)+1) . ',$delete_'
     endif
     call setline(1, to.lines)
-    call setbufvar(bufnr, 'fugitive_status', stat)
-    call setbufvar(bufnr, 'fugitive_expanded', stat.expanded)
+    call setbufvar(bufnr, 'fujjitive_status', stat)
+    call setbufvar(bufnr, 'fujjitive_expanded', stat.expanded)
     setlocal nomodified readonly nomodifiable
     return ''
   finally
-    let b:fugitive_type = 'index'
+    let b:fujjitive_type = 'index'
   endtry
 endfunction
 
 function! s:StatusRetrieve(bufnr, ...) abort
   let amatch = s:Slash(fnamemodify(bufname(a:bufnr), ':p'))
   let dir = s:Dir(a:bufnr)
-  let config = fugitive#Config(dir, function('len'))
+  let config = fujjitive#Config(dir, function('len'))
 
   let cmd = [dir]
-  if amatch !~# '^fugitive:' && s:cpath($GIT_INDEX_FILE !=# '' ? resolve(s:GitIndexFileEnv()) : fugitive#Find('.git/index', dir)) !=# s:cpath(amatch)
-    let cmd += [{'env': {'GIT_INDEX_FILE': FugitiveGitPath(amatch)}}]
-  endif
 
-  if fugitive#GitVersion(2, 15)
-    call add(cmd, '--no-optional-locks')
-  endif
-
-  let rev_parse_cmd = cmd + ['rev-parse', '--short', 'HEAD', '--']
+  let rev_parse_cmd = cmd + ['log', '-r', '@', '-T', 'change_id.shortest()']
 
   let stat = {'bufnr': a:bufnr, 'reltime': reltime(), 'work_tree': s:Tree(dir), 'cmd': cmd, 'config': config}
   if empty(stat.work_tree)
-    let stat.rev_parse = call('fugitive#Execute', [rev_parse_cmd, function('s:StatusProcess'), stat] + a:000)
+    let stat.rev_parse = call('fujjitive#Execute', [rev_parse_cmd, function('s:StatusProcess'), stat] + a:000)
     let stat.status = {}
     let stat.running = stat.rev_parse
   else
-    let stat.rev_parse = fugitive#Execute(rev_parse_cmd)
-    let status_cmd = cmd + ['status', '-bz', fugitive#GitVersion(2, 11) ? '--porcelain=v2' : '--porcelain']
-    let stat.status = call('fugitive#Execute', [status_cmd, function('s:StatusProcess'), stat] + a:000)
+    let stat.rev_parse = fujjitive#Execute(rev_parse_cmd)
+    let status_cmd = cmd + ['status']
+    let stat.status = call('fujjitive#Execute', [status_cmd, function('s:StatusProcess'), stat] + a:000)
     let stat.running = stat.status
   endif
   return stat
 endfunction
 
-function! fugitive#BufReadStatus(cmdbang) abort
+function! fujjitive#BufReadStatus(cmdbang) abort
   exe s:VersionCheck()
   if a:cmdbang
-    unlet! b:fugitive_expanded
+    unlet! b:fujjitive_expanded
   endif
-  let b:fugitive_type = 'index'
+  let b:fujjitive_type = 'index'
   let stat = s:StatusRetrieve(bufnr(''))
   try
-    let b:fugitive_loading = stat
+    let b:fujjitive_loading = stat
     doautocmd <nomodeline> BufReadPre
 
     setlocal readonly nomodifiable noswapfile nomodeline buftype=nowrite
@@ -3081,29 +2925,27 @@ function! fugitive#BufReadStatus(cmdbang) abort
       setlocal bufhidden=delete
     endif
     if !exists('b:dispatch')
-      let b:dispatch = ':Git fetch --all'
+      let b:dispatch = ':JJ git fetch --all-remotes'
     endif
-    setlocal filetype=fugitive
+    setlocal filetype=fujjitive
 
-    return s:DoAutocmd('User FugitiveIndex')
+    return s:DoAutocmd('User FujjitiveIndex')
   finally
-    call setbufvar(stat.bufnr, 'fugitive_loading', {})
+    call setbufvar(stat.bufnr, 'fujjitive_loading', {})
   endtry
 endfunction
 
-function! fugitive#FileReadCmd(...) abort
+function! fujjitive#FileReadCmd(...) abort
   let amatch = a:0 ? a:1 : expand('<amatch>')
   let [dir, rev] = s:DirRev(amatch)
   let line = a:0 > 1 ? a:2 : line("'[")
   if empty(dir)
     return 'noautocmd ' . line . 'read ' . s:fnameescape(amatch)
   endif
-  if rev !~# ':' && s:ChompDefault('', [dir, 'cat-file', '-t', rev]) =~# '^\%(commit\|tag\)$'
-    let cmd = [dir, 'log', '--pretty=format:%B', '-1', rev, '--']
-  elseif rev ==# ':'
-    let cmd = [dir, 'status', '--short']
+  if rev ==# ':'
+    let cmd = [dir, 'status']
   else
-    let cmd = [dir, 'cat-file', '-p', rev, '--']
+    let cmd = [dir, 'file', 'show', '--revision', rev, '--']
   endif
   let temp = tempname()
   let [err, exec_error] = s:StdoutToFile(temp, cmd)
@@ -3115,7 +2957,7 @@ function! fugitive#FileReadCmd(...) abort
   endif
 endfunction
 
-function! fugitive#FileWriteCmd(...) abort
+function! fujjitive#FileWriteCmd(...) abort
   let temp = tempname()
   let amatch = a:0 ? a:1 : expand('<amatch>')
   let autype = a:0 > 1 ? 'Buf' : 'File'
@@ -3128,7 +2970,7 @@ function! fugitive#FileWriteCmd(...) abort
       return "noautocmd '[,']write" . (v:cmdbang ? '!' : '') . ' ' . s:fnameescape(amatch)
     endif
     silent execute "noautocmd keepalt '[,']write ".temp
-    let hash = s:TreeChomp([dir, '--literal-pathspecs', 'hash-object', '-w', '--', FugitiveGitPath(temp)])
+    let hash = s:TreeChomp([dir, '', 'hash-object', '-w', '--', FujjitiveJJPath(temp)])
     let old_mode = matchstr(s:ChompDefault('', ['ls-files', '--stage', '.' . file], dir), '^\d\+')
     if empty(old_mode)
       let old_mode = executable(s:Tree(dir) . file) ? '100755' : '100644'
@@ -3142,59 +2984,59 @@ function! fugitive#FileWriteCmd(...) abort
       exe s:DoAutocmdChanged(dir)
       return ''
     else
-      return 'echoerr '.string('fugitive: '.error)
+      return 'echoerr '.string('fujjitive: '.error)
     endif
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   finally
     call delete(temp)
   endtry
 endfunction
 
-function! fugitive#BufReadCmd(...) abort
+function! fujjitive#BufReadCmd(...) abort
   let amatch = a:0 ? a:1 : expand('<amatch>')
   let [dir, rev] = s:DirRev(amatch)
   if empty(dir)
-    return 'echo "Invalid Fugitive URL"'
+    return 'echo "Invalid Fujjitive URL"'
   endif
   call s:InitializeBuffer(dir)
   if rev ==# ':'
-    return fugitive#BufReadStatus(v:cmdbang)
+    return fujjitive#BufReadStatus(v:cmdbang)
   endif
   try
     if rev =~# '^:\d$'
-      let b:fugitive_type = 'stage'
+      let b:fujjitive_type = 'stage'
     else
-      let r = fugitive#Execute([dir, 'cat-file', '-t', rev])
-      let b:fugitive_type = get(r.stdout, 0, '')
+      let r = fujjitive#Execute([dir, 'cat-file', '-t', rev])
+      let b:fujjitive_type = get(r.stdout, 0, '')
       if r.exit_status && rev =~# '^:0'
-        let r = fugitive#Execute([dir, 'write-tree', '--prefix=' . rev[3:-1]])
+        let r = fujjitive#Execute([dir, 'write-tree', '--prefix=' . rev[3:-1]])
         let sha = get(r.stdout, 0, '')
-        let b:fugitive_type = 'tree'
+        let b:fujjitive_type = 'tree'
       endif
       if r.exit_status
         let error = substitute(join(r.stderr, "\n"), "\n*$", '', '')
-        unlet b:fugitive_type
+        unlet b:fujjitive_type
         setlocal noswapfile
         if empty(&bufhidden)
           setlocal bufhidden=delete
         endif
         if rev =~# '^:\d:'
-          let &l:readonly = !filewritable(fugitive#Find('.git/index', dir))
+          let &l:readonly = !filewritable(fujjitive#Find('.jj/index', dir))
           return 'doautocmd BufNewFile'
         else
           setlocal readonly nomodifiable
           return 'doautocmd BufNewFile|echo ' . string(error)
         endif
-      elseif b:fugitive_type !~# '^\%(tag\|commit\|tree\|blob\)$'
-        return "echoerr ".string("fugitive: unrecognized git type '".b:fugitive_type."'")
+      elseif b:fujjitive_type !~# '^\%(tag\|commit\|tree\|blob\)$'
+        return "echoerr ".string("fujjitive: unrecognized jj type '".b:fujjitive_type."'")
       endif
-      if !exists('b:fugitive_display_format') && b:fugitive_type != 'blob'
-        let b:fugitive_display_format = +getbufvar('#','fugitive_display_format')
+      if !exists('b:fujjitive_display_format') && b:fujjitive_type != 'blob'
+        let b:fujjitive_display_format = +getbufvar('#','fujjitive_display_format')
       endif
     endif
 
-    if b:fugitive_type !=# 'blob'
+    if b:fujjitive_type !=# 'blob'
       setlocal nomodeline
     endif
 
@@ -3203,16 +3045,16 @@ function! fugitive#BufReadCmd(...) abort
     silent keepjumps %delete_
     setlocal endofline
 
-    let events = ['User FugitiveObject', 'User Fugitive' . substitute(b:fugitive_type, '^\l', '\u&', '')]
+    let events = ['User FujjitiveObject', 'User Fujjitive' . substitute(b:fujjitive_type, '^\l', '\u&', '')]
 
     try
-      if b:fugitive_type !=# 'blob'
+      if b:fujjitive_type !=# 'blob'
         setlocal foldmarker=<<<<<<<<,>>>>>>>>
       endif
       exe s:DoAutocmd('BufReadPre')
-      if b:fugitive_type ==# 'tree'
-        let b:fugitive_display_format = b:fugitive_display_format % 2
-        if b:fugitive_display_format
+      if b:fujjitive_type ==# 'tree'
+        let b:fujjitive_display_format = b:fujjitive_display_format % 2
+        if b:fujjitive_display_format
           call s:ReplaceCmd([dir, 'ls-tree', exists('sha') ? sha : rev])
         else
           if !exists('sha')
@@ -3220,17 +3062,17 @@ function! fugitive#BufReadCmd(...) abort
           endif
           call s:ReplaceCmd([dir, 'show', '--no-color', sha])
         endif
-      elseif b:fugitive_type ==# 'tag'
-        let b:fugitive_display_format = b:fugitive_display_format % 2
-        if b:fugitive_display_format
-          call s:ReplaceCmd([dir, 'cat-file', b:fugitive_type, rev])
+      elseif b:fujjitive_type ==# 'tag'
+        let b:fujjitive_display_format = b:fujjitive_display_format % 2
+        if b:fujjitive_display_format
+          call s:ReplaceCmd([dir, 'cat-file', b:fujjitive_type, rev])
         else
           call s:ReplaceCmd([dir, 'cat-file', '-p', rev])
         endif
-      elseif b:fugitive_type ==# 'commit'
-        let b:fugitive_display_format = b:fugitive_display_format % 2
-        if b:fugitive_display_format
-          call s:ReplaceCmd([dir, 'cat-file', b:fugitive_type, rev])
+      elseif b:fujjitive_type ==# 'commit'
+        let b:fujjitive_display_format = b:fujjitive_display_format % 2
+        if b:fujjitive_display_format
+          call s:ReplaceCmd([dir, 'cat-file', b:fujjitive_type, rev])
         else
           call s:ReplaceCmd([dir, '-c', 'diff.noprefix=false', '-c', 'log.showRoot=false', 'show', '--no-color', '-m', '--first-parent', '--pretty=format:tree%x20%T%nparent%x20%P%nauthor%x20%an%x20<%ae>%x20%ad%ncommitter%x20%cn%x20<%ce>%x20%cd%nencoding%x20%e%n%n%B', rev])
           keepjumps 1
@@ -3247,28 +3089,28 @@ function! fugitive#BufReadCmd(...) abort
           silent exe (exists(':keeppatterns') ? 'keeppatterns' : '') 'keepjumps 1,/^diff --git\|\%$/s/\r$//e'
           keepjumps 1
         endif
-      elseif b:fugitive_type ==# 'stage'
+      elseif b:fujjitive_type ==# 'stage'
         call s:ReplaceCmd([dir, 'ls-files', '--stage'])
-      elseif b:fugitive_type ==# 'blob'
-        let blob_or_filters = rev =~# ':' && fugitive#GitVersion(2, 11) ? '--filters' : 'blob'
+      elseif b:fujjitive_type ==# 'blob'
+        let blob_or_filters = rev =~# ':' && fujjitive#GitVersion(2, 11) ? '--filters' : 'blob'
         call s:ReplaceCmd([dir, 'cat-file', blob_or_filters, rev])
       endif
     finally
       keepjumps call setpos('.',pos)
       setlocal nomodified noswapfile
-      let modifiable = rev =~# '^:.:' && b:fugitive_type !=# 'tree'
+      let modifiable = rev =~# '^:.:' && b:fujjitive_type !=# 'tree'
       if modifiable
-        let events = ['User FugitiveStageBlob']
+        let events = ['User FujjitiveStageBlob']
       endif
-      let &l:readonly = !modifiable || !filewritable(fugitive#Find('.git/index', dir))
+      let &l:readonly = !modifiable || !filewritable(fujjitive#Find('.jj/index', dir))
       if empty(&bufhidden)
         setlocal bufhidden=delete
       endif
       let &l:modifiable = modifiable
-      call fugitive#MapJumps()
-      if b:fugitive_type !=# 'blob'
-        call s:Map('n', 'a', ":<C-U>let b:fugitive_display_format += v:count1<Bar>exe fugitive#BufReadCmd(@%)<CR>", '<silent>')
-        call s:Map('n', 'i', ":<C-U>let b:fugitive_display_format -= v:count1<Bar>exe fugitive#BufReadCmd(@%)<CR>", '<silent>')
+      call fujjitive#MapJumps()
+      if b:fujjitive_type !=# 'blob'
+        call s:Map('n', 'a', ":<C-U>let b:fujjitive_display_format += v:count1<Bar>exe fujjitive#BufReadCmd(@%)<CR>", '<silent>')
+        call s:Map('n', 'i', ":<C-U>let b:fujjitive_display_format -= v:count1<Bar>exe fujjitive#BufReadCmd(@%)<CR>", '<silent>')
         setlocal filetype=git
       endif
     endtry
@@ -3278,16 +3120,16 @@ function! fugitive#BufReadCmd(...) abort
     return s:DoAutocmd('BufReadPost') .
           \ (modifiable ? '' : '|setl nomodifiable') . '|' .
           \ call('s:DoAutocmd', events)
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
 endfunction
 
-function! fugitive#BufWriteCmd(...) abort
-  return fugitive#FileWriteCmd(a:0 ? a:1 : expand('<amatch>'), 1)
+function! fujjitive#BufWriteCmd(...) abort
+  return fujjitive#FileWriteCmd(a:0 ? a:1 : expand('<amatch>'), 1)
 endfunction
 
-function! fugitive#SourceCmd(...) abort
+function! fujjitive#SourceCmd(...) abort
   let amatch = a:0 ? a:1 : expand('<amatch>')
   let temp = s:BlobTemp(amatch)
   if empty(temp)
@@ -3310,11 +3152,11 @@ function! s:TempState(...) abort
   return get(s:temp_files, s:cpath(s:AbsoluteVimPath(a:0 ? a:1 : -1)), {})
 endfunction
 
-function! fugitive#Result(...) abort
-  if !a:0 && exists('g:fugitive_event')
-    return get(g:, 'fugitive_result', {})
+function! fujjitive#Result(...) abort
+  if !a:0 && exists('g:fujjitive_event')
+    return get(g:, 'fujjitive_result', {})
   elseif !a:0 || type(a:1) == type('') && a:1 =~# '^-\=$'
-    return get(g:, '_fugitive_last_job', {})
+    return get(g:, '_fujjitive_last_job', {})
   elseif type(a:1) == type(0)
     return s:TempState(a:1)
   elseif type(a:1) == type('')
@@ -3335,14 +3177,14 @@ function! s:TempDotMap() abort
       return expand('<cfile>')
     endif
   endif
-  let name = fugitive#Find(cfile[0])
+  let name = fujjitive#Find(cfile[0])
   let [dir, commit, file] = s:DirCommitFile(name)
   if len(commit) && empty(file)
     return commit
   elseif s:cpath(s:Tree(), getcwd())
-    return fugitive#Path(name, "./")
+    return fujjitive#Path(name, "./")
   else
-    return fugitive#Real(name)
+    return fujjitive#Real(name)
   endif
 endfunction
 
@@ -3357,8 +3199,8 @@ function! s:TempReadPre(file) abort
     setlocal buftype=nowrite
     setlocal nomodifiable
     call s:InitializeBuffer(dict)
-    if len(dict.git_dir)
-      call extend(b:, {'fugitive_type': 'temp'}, 'keep')
+    if len(dict.jj_dir)
+      call extend(b:, {'fujjitive_type': 'temp'}, 'keep')
     endif
   endif
   return ''
@@ -3372,7 +3214,7 @@ function! s:TempReadPost(file) abort
       setlocal nobuflisted
     endif
     if get(dict, 'filetype', '') ==# 'git'
-      call fugitive#MapJumps()
+      call fujjitive#MapJumps()
       call s:Map('n', '.', ":<C-U> <C-R>=<SID>fnameescape(<SID>TempDotMap())<CR><Home>")
       call s:Map('x', '.', ":<C-U> <C-R>=<SID>fnameescape(<SID>TempDotMap())<CR><Home>")
     endif
@@ -3380,7 +3222,7 @@ function! s:TempReadPost(file) abort
       if dict.filetype ==# 'man' && has('nvim')
         let b:man_sect = matchstr(getline(1), '^\w\+(\zs\d\+\ze)')
       endif
-      if !get(g:, 'did_load_ftplugin') && dict.filetype ==# 'fugitiveblame'
+      if !get(g:, 'did_load_ftplugin') && dict.filetype ==# 'fujjitiveblame'
         call s:BlameMaps(0)
       endif
       let &l:filetype = dict.filetype
@@ -3389,14 +3231,14 @@ function! s:TempReadPost(file) abort
     if !&modifiable
       call s:Map('n', 'gq', ":<C-U>bdelete<CR>", '<silent> <unique>')
     endif
-    return 'doautocmd <nomodeline> User FugitivePager'
+    return 'doautocmd <nomodeline> User FujjitivePager'
   endif
   return ''
 endfunction
 
 function! s:TempDelete(file) abort
   let key = s:cpath(s:AbsoluteVimPath(a:file))
-  if has_key(s:temp_files, key) && !has_key(s:temp_files[key], 'job') && key !=# s:cpath(get(get(g:, '_fugitive_last_job', {}), 'file', ''))
+  if has_key(s:temp_files, key) && !has_key(s:temp_files[key], 'job') && key !=# s:cpath(get(get(g:, '_fujjitive_last_job', {}), 'file', ''))
     call delete(a:file)
     call remove(s:temp_files, key)
   endif
@@ -3408,20 +3250,20 @@ function! s:OriginBufnr(...) abort
   return get(state, 'origin_bufnr', -1)
 endfunction
 
-augroup fugitive_temp
+augroup fujjitive_temp
   autocmd!
   autocmd BufReadPre  * exe s:TempReadPre( +expand('<abuf>'))
   autocmd BufReadPost * exe s:TempReadPost(+expand('<abuf>'))
   autocmd BufWipeout  * exe s:TempDelete(  +expand('<abuf>'))
 augroup END
 
-" Section: :Git
+" Section: :JJ
 
 function! s:AskPassArgs(dir) abort
   if (len($DISPLAY) || len($TERM_PROGRAM) || has('gui_running')) &&
-        \ empty($GIT_ASKPASS) && empty($SSH_ASKPASS) && empty(fugitive#ConfigGetAll('core.askpass', a:dir))
-    if s:executable(s:VimExecPath() . '/git-gui--askpass')
-      return ['-c', 'core.askPass=' . s:ExecPath()[0] . '/git-gui--askpass']
+        \ empty($JJ_ASKPASS) && empty($SSH_ASKPASS) && empty(fujjitive#ConfigGetAll('core.askpass', a:dir))
+    if s:executable(s:JJVimExecPath() . '/jj-gui--askpass')
+      return ['-c', 'core.askPass=' . s:JJExecPath()[0] . '/jj-gui--askpass']
     elseif s:executable('ssh-askpass')
       return ['-c', 'core.askPass=ssh-askpass']
     endif
@@ -3434,10 +3276,10 @@ function! s:RunSave(state) abort
 endfunction
 
 function! s:RunFinished(state, ...) abort
-  if has_key(get(g:, '_fugitive_last_job', {}), 'file') && bufnr(g:_fugitive_last_job.file) < 0
-    exe s:TempDelete(remove(g:, '_fugitive_last_job').file)
+  if has_key(get(g:, '_fujjitive_last_job', {}), 'file') && bufnr(g:_fujjitive_last_job.file) < 0
+    exe s:TempDelete(remove(g:, '_fujjitive_last_job').file)
   endif
-  let g:_fugitive_last_job = a:state
+  let g:_fujjitive_last_job = a:state
   let first = join(readfile(a:state.file, '', 2), "\n")
   if get(a:state, 'filetype', '') ==# 'git' && first =~# '\<\([[:upper:][:digit:]_-]\+(\d\+)\).*\1'
     let a:state.filetype = 'man'
@@ -3445,7 +3287,7 @@ function! s:RunFinished(state, ...) abort
   if !has_key(a:state, 'capture_bufnr')
     return
   endif
-  call fugitive#DidChange(a:state)
+  call fujjitive#DidChange(a:state)
 endfunction
 
 function! s:RunEdit(state, tmp, job) abort
@@ -3454,7 +3296,7 @@ function! s:RunEdit(state, tmp, job) abort
   endif
   call remove(a:state, 'request')
   let sentinel = a:state.file . '.edit'
-  let file = FugitiveVimPath(readfile(sentinel, '', 1)[0])
+  let file = FujjitiveVimPath(readfile(sentinel, '', 1)[0])
   try
     if !&equalalways && a:state.mods !~# '\<\d*tab\>' && 3 > (a:state.mods =~# '\<vert' ? winwidth(0) : winheight(0))
       let noequalalways = 1
@@ -3471,14 +3313,14 @@ function! s:RunEdit(state, tmp, job) abort
   call s:InitializeBuffer(a:state)
   let bufnr = bufnr('')
   let s:edit_jobs[bufnr] = [a:state, a:tmp, a:job, sentinel]
-  call fugitive#DidChange(a:state.git_dir)
-  if bufnr == bufnr('') && !exists('g:fugitive_event')
+  call fujjitive#DidChange(a:state.jj_dir)
+  if bufnr == bufnr('') && !exists('g:fujjitive_event')
     try
-      let g:fugitive_event = a:state.git_dir
-      let g:fugitive_result = a:state
-      exe s:DoAutocmd('User FugitiveEditor')
+      let g:fujjitive_event = a:state.jj_dir
+      let g:fujjitive_result = a:state
+      exe s:DoAutocmd('User FujjitiveEditor')
     finally
-      unlet! g:fugitive_event g:fugitive_result
+      unlet! g:fujjitive_event g:fujjitive_result
     endtry
   endif
   return 1
@@ -3495,7 +3337,7 @@ function! s:RunReceive(state, tmp, type, job, data, ...) abort
     endif
     let cmd = matchstr(data, escape . "\007")[5:-2]
     let data = substitute(data, escape . "\007", '', 'g')
-    if cmd =~# '^fugitive:'
+    if cmd =~# '^fujjitive:'
       let a:state.request = strpart(cmd, 9)
     endif
     let lines = split(a:tmp.err . data, "\r\\=\n", 1)
@@ -3660,7 +3502,7 @@ function! s:RunWait(state, tmp, job, ...) abort
               if has_key(a:tmp, 'echo')
                 call remove(a:tmp, 'echo')
               endif
-              call writefile(['fugitive: aborting edit due to background operation.'], a:state.file . '.exit')
+              call writefile(['fujjitive: aborting edit due to background operation.'], a:state.file . '.exit')
               exe (&splitbelow ? 'botright' : 'topleft') 'silent pedit ++ff=unix' s:fnameescape(a:state.file)
               let a:state.capture_bufnr = bufnr(a:state.file)
               call setbufvar(a:state.capture_bufnr, '&modified', 1)
@@ -3678,7 +3520,7 @@ function! s:RunWait(state, tmp, job, ...) abort
       endif
     endwhile
     if !has_key(a:state, 'request') && has_key(a:state, 'job') && exists('*job_status') && job_status(a:job) ==# "dead"
-      throw 'fugitive: close callback did not fire; this should never happen'
+      throw 'fujjitive: close callback did not fire; this should never happen'
     endif
     call s:RunEcho(a:tmp)
     if has_key(a:tmp, 'echo')
@@ -3702,7 +3544,7 @@ function! s:RunWait(state, tmp, job, ...) abort
       catch /.*/
       endtry
     elseif finished
-      call fugitive#DidChange(a:state)
+      call fujjitive#DidChange(a:state)
     endif
   endtry
   return ''
@@ -3711,7 +3553,7 @@ endfunction
 if !exists('s:resume_queue')
   let s:resume_queue = []
 endif
-function! fugitive#Resume() abort
+function! fujjitive#Resume() abort
   while len(s:resume_queue)
     let enqueued = remove(s:resume_queue, 0)
     if enqueued[2] isnot# ''
@@ -3737,11 +3579,11 @@ function! s:RunBufDelete(bufnr) abort
   if has_key(s:edit_jobs, a:bufnr) |
     call add(s:resume_queue, remove(s:edit_jobs, a:bufnr))
     call feedkeys("\<C-\>\<C-N>:redraw!|call delete(" . string(s:resume_queue[-1][0].file . '.edit') .
-          \ ")|call fugitive#Resume()|checktime\r", 'n')
+          \ ")|call fujjitive#Resume()|checktime\r", 'n')
   endif
 endfunction
 
-augroup fugitive_job
+augroup fujjitive_job
   autocmd!
   autocmd BufDelete * call s:RunBufDelete(+expand('<abuf>'))
   autocmd VimLeave *
@@ -3752,12 +3594,12 @@ augroup fugitive_job
         \ endfor
 augroup END
 
-function! fugitive#CanPty() abort
-  return get(g:, 'fugitive_pty_debug_override',
-        \ has('unix') && !has('win32unix') && (has('patch-8.0.0744') || has('nvim')) && fugitive#GitVersion() !~# '\.windows\>')
+function! fujjitive#CanPty() abort
+  return get(g:, 'fujjitive_pty_debug_override',
+        \ has('unix') && !has('win32unix') && (has('patch-8.0.0744') || has('nvim')) && fujjitive#GitVersion() !~# '\.windows\>')
 endfunction
 
-function! fugitive#PagerFor(argv, ...) abort
+function! fujjitive#PagerFor(argv, ...) abort
   let args = a:argv
   if empty(args)
     return 0
@@ -3772,8 +3614,8 @@ function! fugitive#PagerFor(argv, ...) abort
         \   !s:HasOpt(args, '--contains', '--no-contains', '--merged', '--no-merged', '--points-at'))
     return 0
   endif
-  let config = a:0 ? a:1 : fugitive#Config()
-  let value = get(fugitive#ConfigGetAll('pager.' . args[0], config), 0, -1)
+  let config = a:0 ? a:1 : fujjitive#Config()
+  let value = get(fujjitive#ConfigGetAll('pager.' . args[0], config), 0, -1)
   if value =~# '^\%(true\|yes\|on\|1\)$'
     return 1
   elseif value =~# '^\%(false\|no|off\|0\|\)$'
@@ -3781,7 +3623,7 @@ function! fugitive#PagerFor(argv, ...) abort
   elseif type(value) == type('')
     return value
   elseif args[0] =~# '^\%(branch\|config\|diff\|grep\|log\|range-diff\|shortlog\|show\|tag\|whatchanged\)$' ||
-        \ (args[0] ==# 'stash' && get(args, 1, '') ==# 'show') ||
+        \ (args[0] ==# 'restore' && get(args, 1, '') ==# 'show') ||
         \ (args[0] ==# 'reflog' && get(args, 1, '') !~# '^\%(expire\|delete\|exists\)$') ||
         \ (args[0] ==# 'am' && s:HasOpt(args, '--show-current-patch'))
     return 1
@@ -3795,13 +3637,13 @@ for s:colortype in ['advice', 'branch', 'diff', 'grep', 'interactive', 'pager', 
   call extend(s:disable_colors, ['-c', 'color.' . s:colortype . '=false'])
 endfor
 unlet s:colortype
-function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
+function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
   exe s:VersionCheck()
   let dir = call('s:Dir', a:000)
   if len(dir)
     exe s:DirCheck(dir)
   endif
-  let config = copy(fugitive#Config(dir))
+  let config = copy(fujjitive#Config(dir))
   let curwin = a:arg =~# '^++curwin\>' || !a:line2
   let [args, after] = s:SplitExpandChain(substitute(a:arg, '^++curwin\>\s*', '', ''), s:Tree(dir))
   let flags = []
@@ -3823,13 +3665,13 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
     elseif args[0] =~# '^\%(--no-optional-locks\)$'
       call add(flags, remove(args, 0))
     elseif args[0] =~# '^-C$\|^--\%(exec-path=\|git-dir=\|work-tree=\|bare$\)'
-      return 'echoerr ' . string('fugitive: ' . args[0] . ' is not supported')
+      return 'echoerr ' . string('fujjitive: ' . args[0] . ' is not supported')
     elseif did_expand_alias
       break
     else
-      let alias = FugitiveConfigGet('alias.' . get(args, 0, ''), config)
-      if get(args, 1, '') !=# '--help' && alias !~# '^$\|^!\|[\"'']' && !filereadable(s:VimExecPath() . '/git-' . args[0])
-            \ && !(has('win32') && filereadable(s:VimExecPath() . '/git-' . args[0] . '.exe'))
+      let alias = FujjitiveConfigGet('alias.' . get(args, 0, ''), config)
+      if get(args, 1, '') !=# '--help' && alias !~# '^$\|^!\|[\"'']' && !filereadable(s:JJVimExecPath() . '/git-' . args[0])
+            \ && !(has('win32') && filereadable(s:JJVimExecPath() . '/git-' . args[0] . '.exe'))
         call remove(args, 0)
         call extend(args, split(alias, '\s\+'), 'keep')
         let did_expand_alias = 1
@@ -3839,7 +3681,7 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
     endif
   endwhile
   if !explicit_pathspec_option
-    call insert(flags, '--no-literal-pathspecs')
+    call insert(flags, '--no-pager')
   endif
   let no_pager = pager is# 0
   if no_pager
@@ -3862,7 +3704,7 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
     endif
     let i += 1
   endwhile
-  let options = {'git': s:UserCommandList(), 'git_dir': s:GitDir(dir), 'flags': flags, 'curwin': curwin}
+  let options = {'git': s:UserCommandList(), 'jj_dir': s:JJDir(dir), 'flags': flags, 'curwin': curwin}
   if empty(args) && pager is# -1
     let cmd = s:StatusCommand(a:line1, a:line2, a:range, curwin ? 0 : a:line2, a:bang, a:mods, '', '', [], options)
     return (empty(cmd) ? 'exe' : cmd) . after
@@ -3875,7 +3717,7 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
         return 'exe ' . string(overrides) . after
       endif
       let args = [get(overrides, 'command', args[0])] + get(overrides, 'insert_args', []) + args[1:-1]
-    catch /^fugitive:/
+    catch /^fujjitive:/
       return 'echoerr ' . string(v:exception)
     endtry
   else
@@ -3884,21 +3726,21 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
   call extend(env, get(overrides, 'env', {}))
   call s:PrepareEnv(env, dir)
   if pager is# -1
-    let pager = fugitive#PagerFor(args, config)
+    let pager = fujjitive#PagerFor(args, config)
   endif
   let wants_terminal = type(pager) ==# type('') ||
-        \ (s:HasOpt(args, ['add', 'checkout', 'commit', 'reset', 'restore', 'stage', 'stash'], '-p', '--patch') ||
+        \ (s:HasOpt(args, ['add', 'checkout', 'commit', 'reset', 'restore', 'stage', 'restore'], '-p', '--patch') ||
         \ s:HasOpt(args, ['add', 'clean', 'stage'], '-i', '--interactive')) && pager is# 0
   if wants_terminal
     let mods = substitute(s:Mods(a:mods), '\<tab\>', '-tab', 'g')
-    let assign = len(dir) ? "|call FugitiveDetect({'git_dir':" . string(options.git_dir) . '})' : ''
+    let assign = len(dir) ? "|call FujjitiveDetect({'jj_dir':" . string(options.jj_dir) . '})' : ''
     let argv = s:UserCommandList(options) + args
     let term_opts = len(env) ? {'env': env} : {}
     if has('nvim')
-      call fugitive#Autowrite()
+      call fujjitive#Autowrite()
       return mods . (curwin ? 'enew' : 'new') . '|call termopen(' . string(argv) . ', ' . string(term_opts) . ')' . assign . '|startinsert' . after
     elseif exists('*term_start')
-      call fugitive#Autowrite()
+      call fujjitive#Autowrite()
       if curwin
         let term_opts.curwin = 1
       endif
@@ -3909,7 +3751,7 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
         \ 'git': options.git,
         \ 'flags': flags,
         \ 'args': args,
-        \ 'git_dir': options.git_dir,
+        \ 'jj_dir': options.jj_dir,
         \ 'cwd': s:UserCommandCwd(dir),
         \ 'filetype': 'git',
         \ 'mods': s:Mods(a:mods),
@@ -3934,11 +3776,11 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
       let do_edit = s:Mods(a:mods) . 'edit'
       call s:BlurStatus()
     endif
-    call extend(env, {'COLUMNS': '' . get(g:, 'fugitive_columns', 80)}, 'keep')
+    call extend(env, {'COLUMNS': '' . get(g:, 'fujjitive_columns', 80)}, 'keep')
   endif
   if s:run_jobs
     call extend(env, {'COLUMNS': '' . (&columns - 1)}, 'keep')
-    let state.pty = allow_pty && fugitive#CanPty()
+    let state.pty = allow_pty && fujjitive#CanPty()
     if !state.pty
       let args = s:AskPassArgs(dir) + args
     endif
@@ -3948,18 +3790,18 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
           \ 'err': '',
           \ 'out': '',
           \ 'escape': ''}
-    let env.FUGITIVE = state.file
+    let env.FUJJITIVE = state.file
     let editor = 'sh ' . s:TempScript(
-          \ '[ -f "$FUGITIVE.exit" ] && cat "$FUGITIVE.exit" >&2 && exit 1',
-          \ 'echo "$1" > "$FUGITIVE.edit"',
-          \ 'printf "\033]51;fugitive:edit\007" >&2',
-          \ 'while [ -f "$FUGITIVE.edit" -a ! -f "$FUGITIVE.exit" ]; do sleep 0.05 2>/dev/null || sleep 1; done',
+          \ '[ -f "$FUJJITIVE.exit" ] && cat "$FUJJITIVE.exit" >&2 && exit 1',
+          \ 'echo "$1" > "$FUJJITIVE.edit"',
+          \ 'printf "\033]51;fujjitive:edit\007" >&2',
+          \ 'while [ -f "$FUJJITIVE.edit" -a ! -f "$FUJJITIVE.exit" ]; do sleep 0.05 2>/dev/null || sleep 1; done',
           \ 'exit 0')
     call extend(env, {
           \ 'NO_COLOR': '1',
-          \ 'GIT_EDITOR': editor,
-          \ 'GIT_SEQUENCE_EDITOR': editor,
-          \ 'GIT_PAGER': 'cat',
+          \ 'JJ_EDITOR': editor,
+          \ 'JJ_SEQUENCE_EDITOR': editor,
+          \ 'JJ_PAGER': 'cat',
           \ 'PAGER': 'cat'}, 'keep')
     if s:executable('col')
       let env.MANPAGER = 'col -b'
@@ -3969,18 +3811,18 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
       let did_override_gpg_tty = 1
     endif
     if stream
-      call writefile(['fugitive: aborting edit due to background operation.'], state.file . '.exit')
+      call writefile(['fujjitive: aborting edit due to background operation.'], state.file . '.exit')
     elseif pager
-      call writefile(['fugitive: aborting edit due to use of pager.'], state.file . '.exit')
+      call writefile(['fujjitive: aborting edit due to use of pager.'], state.file . '.exit')
       let after = '|' . do_edit . ' ' . s:fnameescape(state.file) . after_edit . after
     else
-      let env.GIT_MERGE_AUTOEDIT = '1'
+      let env.JJ_MERGE_AUTOEDIT = '1'
       let tmp.echo = ''
     endif
     let args = s:disable_colors + flags + ['-c', 'advice.waitingForEditor=false'] + args
-    let argv = s:UserCommandList({'git': options.git, 'git_dir': options.git_dir}) + args
+    let argv = s:UserCommandList({'git': options.git, 'jj_dir': options.jj_dir}) + args
     let [argv, jobopts] = s:JobOpts(argv, env)
-    call fugitive#Autowrite()
+    call fujjitive#Autowrite()
     call writefile([], state.file, 'b')
     call s:RunSave(state)
     if has_key(tmp, 'echo')
@@ -4021,7 +3863,7 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
       return (after_edit . after)[1:-1]
     endif
     call add(s:resume_queue, [state, tmp, job])
-    return 'call fugitive#Resume()|checktime' . after
+    return 'call fujjitive#Resume()|checktime' . after
   elseif pager
     let pre = s:BuildEnvPrefix(env)
     try
@@ -4041,20 +3883,20 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
     call s:RunSave(state)
     call s:RunFinished(state)
     return do_edit . ' ' . s:fnameescape(state.file) . after_edit .
-          \ '|call fugitive#DidChange(fugitive#Result(' . string(state.file) . '))' . after
+          \ '|call fujjitive#DidChange(fujjitive#Result(' . string(state.file) . '))' . after
   elseif has('win32')
-    return 'echoerr ' . string('fugitive: Vim 8 with job support required to use :Git on Windows')
+    return 'echoerr ' . string('fujjitive: Vim 8 with job support required to use :JJ on Windows')
   elseif has('gui_running')
-    return 'echoerr ' . string('fugitive: Vim 8 with job support required to use :Git in GVim')
+    return 'echoerr ' . string('fujjitive: Vim 8 with job support required to use :JJ in GVim')
   else
-    if !explicit_pathspec_option && get(options.flags, 0, '') ==# '--no-literal-pathspecs'
+    if !explicit_pathspec_option && get(options.flags, 0, '') ==# '--no-pager'
       call remove(options.flags, 0)
     endif
     if exists('l:did_override_gpg_tty')
       call remove(env, 'GPG_TTY')
     endif
     let cmd = s:BuildEnvPrefix(env) . s:shellesc(s:UserCommandList(options) + args)
-    let after = '|call fugitive#DidChange(' . string(dir) . ')' . after
+    let after = '|call fujjitive#DidChange(' . string(dir) . ')' . after
     if !wants_terminal && (no_pager || index(['add', 'clean', 'reset', 'restore', 'stage'], get(args, 0, '')) >= 0 || s:HasOpt(args, ['checkout'], '-q', '--quiet', '--no-progress'))
       let output = substitute(s:SystemError(cmd)[0], "\n$", '', '')
       if len(output)
@@ -4078,17 +3920,17 @@ function! fugitive#Command(line1, line2, range, bang, mods, arg, ...) abort
 endfunction
 
 let s:exec_paths = {}
-function! s:ExecPath() abort
+function! s:JJExecPath() abort
   let git = s:GitShellCmd()
   if !has_key(s:exec_paths, git)
     let path = get(s:JobExecute(s:GitCmd() + ['--exec-path'], {}, [], [], {}).stdout, 0, '')
-    let s:exec_paths[git] = [path, FugitiveVimPath(path)]
+    let s:exec_paths[git] = [path, FujjitiveVimPath(path)]
   endif
   return s:exec_paths[git]
 endfunction
 
-function! s:VimExecPath() abort
-  return s:ExecPath()[1]
+function! s:JJVimExecPath() abort
+  return s:JJExecPath()[1]
 endfunction
 
 let s:subcommands_before_2_5 = [
@@ -4098,14 +3940,14 @@ let s:subcommands_before_2_5 = [
       \ 'gc', 'grep', 'gui', 'help', 'init', 'instaweb', 'log',
       \ 'merge', 'mergetool', 'mv', 'notes', 'pull', 'push',
       \ 'rebase', 'reflog', 'remote', 'repack', 'replace', 'request-pull', 'reset', 'revert', 'rm',
-      \ 'send-email', 'shortlog', 'show', 'show-branch', 'stash', 'stage', 'status', 'submodule',
+      \ 'send-email', 'shortlog', 'show', 'show-branch', 'restore', 'stage', 'status', 'submodule',
       \ 'tag', 'whatchanged',
       \ ]
 let s:path_subcommands = {}
 function! s:CompletableSubcommands(dir) abort
-  let c_exec_path = s:cpath(s:VimExecPath())
+  let c_exec_path = s:cpath(s:JJVimExecPath())
   if !has_key(s:path_subcommands, c_exec_path)
-    if fugitive#GitVersion(2, 18)
+    if fujjitive#GitVersion(2, 18)
       let [lines, exec_error] = s:LinesError([a:dir, '--list-cmds=list-mainporcelain,nohelpers,list-complete'])
       call filter(lines, 'v:val =~# "^\\S\\+$"')
       if !exec_error && len(lines)
@@ -4116,7 +3958,7 @@ function! s:CompletableSubcommands(dir) abort
       endif
     else
       let s:path_subcommands[c_exec_path] = s:subcommands_before_2_5 +
-            \ (fugitive#GitVersion(2, 5) ? ['worktree'] : [])
+            \ (fujjitive#GitVersion(2, 5) ? ['worktree'] : [])
     endif
   endif
   let commands = copy(s:path_subcommands[c_exec_path])
@@ -4130,8 +3972,8 @@ function! s:CompletableSubcommands(dir) abort
     endif
     call extend(commands, s:path_subcommands[cpath])
   endfor
-  call extend(commands, keys(fugitive#ConfigGetRegexp('^alias\.\zs[^.]\+$', a:dir)))
-  let configured = split(FugitiveConfigGet('completion.commands', a:dir), '\s\+')
+  call extend(commands, keys(fujjitive#ConfigGetRegexp('^alias\.\zs[^.]\+$', a:dir)))
+  let configured = split(FujjitiveConfigGet('completion.commands', a:dir), '\s\+')
   let rejected = {}
   for command in configured
     if command =~# '^-.'
@@ -4155,7 +3997,7 @@ function! s:CompletableSubcommands(dir) abort
   endif
 endfunction
 
-function! fugitive#Complete(lead, ...) abort
+function! fujjitive#Complete(lead, ...) abort
   let dir = a:0 == 1 ? a:1 : a:0 >= 3 ? s:Dir(a:3) : s:Dir()
   let root = a:0 >= 4 ? a:4 : s:Tree(s:Dir())
   let pre = a:0 > 1 ? strpart(a:1, 0, a:2) : ''
@@ -4163,35 +4005,35 @@ function! fugitive#Complete(lead, ...) abort
   if empty(subcmd) && a:lead =~# '^+'
     let results = ['++curwin']
   elseif empty(subcmd) && a:lead =~# '^-'
-    let results = ['--literal-pathspecs', '--no-literal-pathspecs', '--glob-pathspecs', '--noglob-pathspecs', '--icase-pathspecs', '--no-optional-locks']
+    let results = ['', '--no-pager', '--glob-pathspecs', '--noglob-pathspecs', '--icase-pathspecs', '--no-optional-locks']
   elseif empty(subcmd)
     let results = s:CompletableSubcommands(dir)
   elseif a:0 ==# 2 && subcmd =~# '^\%(commit\|revert\|push\|fetch\|pull\|merge\|rebase\|bisect\)$'
     let cmdline = substitute(a:1, '\u\w*\([! ] *\)' . subcmd, 'G' . subcmd, '')
     let caps_subcmd = substitute(subcmd, '\%(^\|-\)\l', '\u&', 'g')
-    return fugitive#{caps_subcmd}Complete(a:lead, cmdline, a:2 + len(cmdline) - len(a:1), dir, root)
+    return fujjitive#{caps_subcmd}Complete(a:lead, cmdline, a:2 + len(cmdline) - len(a:1), dir, root)
   elseif pre =~# ' -- '
-    return fugitive#CompletePath(a:lead, a:1, a:2, dir, root)
+    return fujjitive#CompletePath(a:lead, a:1, a:2, dir, root)
   elseif a:lead =~# '^-'
     let results = split(s:ChompDefault('', [dir, subcmd, '--git-completion-helper']), ' ')
   else
-    return fugitive#CompleteObject(a:lead, a:1, a:2, dir, root)
+    return fujjitive#CompleteObject(a:lead, a:1, a:2, dir, root)
   endif
   return filter(results, 'strpart(v:val, 0, strlen(a:lead)) ==# a:lead')
 endfunction
 
-function! fugitive#CompleteForWorkingDir(A, L, P, ...) abort
+function! fujjitive#CompleteForWorkingDir(A, L, P, ...) abort
   let path = a:0 ? a:1 : getcwd()
-  return fugitive#Complete(a:A, a:L, a:P, FugitiveExtractGitDir(path), path)
+  return fujjitive#Complete(a:A, a:L, a:P, FujjitiveExtractJJDir(path), path)
 endfunction
 
 " Section: :Gcd, :Glcd
 
-function! fugitive#CdComplete(A, L, P) abort
-  return filter(fugitive#CompletePath(a:A), 'v:val =~# "/$"')
+function! fujjitive#CdComplete(A, L, P) abort
+  return filter(fujjitive#CompletePath(a:A), 'v:val =~# "/$"')
 endfunction
 
-function! fugitive#Cd(path, ...) abort
+function! fujjitive#Cd(path, ...) abort
   exe s:VersionCheck()
   let path = substitute(a:path, '^:/:\=\|^:(\%(top\|top,literal\|literal,top\|literal\))', '', '')
   if path !~# '^/\|^\a\+:\|^\.\.\=\%(/\|$\)'
@@ -4209,8 +4051,8 @@ function! s:StatusCommand(line1, line2, range, count, bang, mods, reg, arg, args
   exe s:DirCheck(dir)
   try
     let mods = s:Mods(a:mods, 'Edge')
-    let file = fugitive#Find(':', dir)
-    let arg = ' +setl\ foldmarker=<<<<<<<<,>>>>>>>>\|let\ w:fugitive_status=FugitiveGitDir() ' .
+    let file = fujjitive#Find(':', dir)
+    let arg = ' +setl\ foldmarker=<<<<<<<<,>>>>>>>>\|let\ w:fujjitive_status=FujjitiveJJDir() ' .
           \ s:fnameescape(file)
     for tabnr in [tabpagenr()] + (mods =~# '\<tab\>' ? range(1, tabpagenr('$')) : [])
       let bufs = tabpagebuflist(tabnr)
@@ -4223,7 +4065,7 @@ function! s:StatusCommand(line1, line2, range, count, bang, mods, reg, arg, args
             exe tabnr . 'tabnext'
             exe winnr . 'wincmd w'
           endif
-          let w:fugitive_status = dir
+          let w:fujjitive_status = dir
           1
           return ''
         endif
@@ -4236,7 +4078,7 @@ function! s:StatusCommand(line1, line2, range, count, bang, mods, reg, arg, args
     else
       return mods . 'keepalt split' . arg
     endif
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
   return ''
@@ -4328,20 +4170,20 @@ function! s:StageSeek(info, fallback) abort
 endfunction
 
 function! s:DoAutocmdChanged(dir) abort
-  let dir = a:dir is# -2 ? '' : FugitiveGitDir(a:dir)
-  if empty(dir) || !exists('#User#FugitiveChanged') || exists('g:fugitive_event')
+  let dir = a:dir is# -2 ? '' : FujjitiveJJDir(a:dir)
+  if empty(dir) || !exists('#User#FujjitiveChanged') || exists('g:fujjitive_event')
     return ''
   endif
   try
-    let g:fugitive_event = dir
+    let g:fujjitive_event = dir
     if type(a:dir) == type({}) && has_key(a:dir, 'args') && has_key(a:dir, 'exit_status')
-      let g:fugitive_result = a:dir
+      let g:fujjitive_result = a:dir
     endif
-    exe s:DoAutocmd('User FugitiveChanged')
+    exe s:DoAutocmd('User FujjitiveChanged')
   finally
-    unlet! g:fugitive_event g:fugitive_result
+    unlet! g:fujjitive_event g:fujjitive_result
     " Force statusline reload with the buffer's Git dir
-    if dir isnot# FugitiveGitDir()
+    if dir isnot# FujjitiveJJDir()
       let &l:ro = &l:ro
     endif
   endtry
@@ -4349,12 +4191,12 @@ function! s:DoAutocmdChanged(dir) abort
 endfunction
 
 function! s:ReloadStatusBuffer() abort
-  if get(b:, 'fugitive_type', '') !=# 'index' || !empty(get(b:, 'fugitive_loading'))
+  if get(b:, 'fujjitive_type', '') !=# 'index' || !empty(get(b:, 'fujjitive_loading'))
     return ''
   endif
   let original_lnum = line('.')
   let info = s:StageInfo(original_lnum)
-  exe fugitive#BufReadStatus(0)
+  exe fujjitive#BufReadStatus(0)
   call setpos('.', [0, s:StageSeek(info, original_lnum), 1, 0])
   return ''
 endfunction
@@ -4377,7 +4219,7 @@ function! s:ExpireStatus(bufnr) abort
     let s:last_time = reltime()
     return ''
   endif
-  let head_file = fugitive#Find('.git/HEAD', a:bufnr)
+  let head_file = fujjitive#Find('.jj/HEAD', a:bufnr)
   if !empty(head_file)
     let s:last_times[s:Tree(a:bufnr) . '/'] = reltime()
     if has_key(s:head_cache, head_file)
@@ -4388,14 +4230,14 @@ function! s:ExpireStatus(bufnr) abort
 endfunction
 
 function! s:ReloadWinStatus(...) abort
-  if get(b:, 'fugitive_type', '') !=# 'index' || !empty(get(b:, 'fugitive_loading')) || &modified
+  if get(b:, 'fujjitive_type', '') !=# 'index' || !empty(get(b:, 'fujjitive_loading')) || &modified
     return
   endif
-  if !exists('b:fugitive_status.reltime')
+  if !exists('b:fujjitive_status.reltime')
     exe call('s:ReloadStatusBuffer', a:000)
     return
   endif
-  let t = b:fugitive_status.reltime
+  let t = b:fujjitive_status.reltime
   if reltimestr(reltime(s:last_time, t)) =~# '-\|\d\{10\}\.' ||
         \ reltimestr(reltime(get(s:last_times, s:Tree() . '/', t), t)) =~# '-\|\d\{10\}\.'
     exe call('s:ReloadStatusBuffer', a:000)
@@ -4403,18 +4245,18 @@ function! s:ReloadWinStatus(...) abort
 endfunction
 
 function! s:ReloadTabStatus() abort
-  if !exists('g:fugitive_did_change_at')
+  if !exists('g:fujjitive_did_change_at')
     return
-  elseif exists('t:fugitive_reloaded_at')
-    let time_ahead = reltime(g:fugitive_did_change_at, t:fugitive_reloaded_at)
+  elseif exists('t:fujjitive_reloaded_at')
+    let time_ahead = reltime(g:fujjitive_did_change_at, t:fujjitive_reloaded_at)
     if reltimefloat(time_ahead) >= 0
       return
     endif
   endif
-  let t:fugitive_reloaded_at = reltime()
+  let t:fujjitive_reloaded_at = reltime()
   let winnr = 1
   while winnr <= winnr('$')
-    if getbufvar(winbufnr(winnr), 'fugitive_type') ==# 'index'
+    if getbufvar(winbufnr(winnr), 'fujjitive_type') ==# 'index'
       if winnr != winnr()
         execute 'noautocmd' winnr.'wincmd w'
         let restorewinnr = 1
@@ -4432,10 +4274,10 @@ function! s:ReloadTabStatus() abort
   endwhile
 endfunction
 
-function! fugitive#DidChange(...) abort
+function! fujjitive#DidChange(...) abort
   call s:ExpireStatus(a:0 ? a:1 : -1)
   if a:0 > 1 ? a:2 : (!a:0 || a:1 isnot# 0)
-    let g:fugitive_did_change_at = reltime()
+    let g:fujjitive_did_change_at = reltime()
     call s:ReloadTabStatus()
   else
     call s:ReloadWinStatus()
@@ -4445,44 +4287,44 @@ function! fugitive#DidChange(...) abort
   return ''
 endfunction
 
-function! fugitive#ReloadStatus(...) abort
-  return call('fugitive#DidChange', a:000)
+function! fujjitive#ReloadStatus(...) abort
+  return call('fujjitive#DidChange', a:000)
 endfunction
 
-function! fugitive#EfmDir(...) abort
-  let dir = matchstr(a:0 ? a:1 : &errorformat, '\c,%\\&\%(git\|fugitive\)_\=dir=\zs\%(\\.\|[^,]\)*')
+function! fujjitive#EfmDir(...) abort
+  let dir = matchstr(a:0 ? a:1 : &errorformat, '\c,%\\&\%(jj\|fujjitive\)_\=dir=\zs\%(\\.\|[^,]\)*')
   let dir = substitute(dir, '%%', '%', 'g')
   let dir = substitute(dir, '\\\ze[\,]', '', 'g')
   return dir
 endfunction
 
-augroup fugitive_status
+augroup fujjitive_status
   autocmd!
-  autocmd BufWritePost         * call fugitive#DidChange(+expand('<abuf>'), 0)
-  autocmd User FileChmodPost,FileUnlinkPost call fugitive#DidChange(+expand('<abuf>'), 0)
-  autocmd ShellCmdPost,ShellFilterPost * nested call fugitive#DidChange(0)
+  autocmd BufWritePost         * call fujjitive#DidChange(+expand('<abuf>'), 0)
+  autocmd User FileChmodPost,FileUnlinkPost call fujjitive#DidChange(+expand('<abuf>'), 0)
+  autocmd ShellCmdPost,ShellFilterPost * nested call fujjitive#DidChange(0)
   autocmd BufDelete * nested
         \ if getbufvar(+expand('<abuf>'), 'buftype') ==# 'terminal' |
-        \   if !empty(FugitiveGitDir(+expand('<abuf>'))) |
-        \     call fugitive#DidChange(+expand('<abuf>')) |
+        \   if !empty(FujjitiveJJDir(+expand('<abuf>'))) |
+        \     call fujjitive#DidChange(+expand('<abuf>')) |
         \   else |
-        \     call fugitive#DidChange(0) |
+        \     call fujjitive#DidChange(0) |
         \  endif |
         \ endif
   autocmd QuickFixCmdPost make,lmake,[cl]file,[cl]getfile nested
-        \ call fugitive#DidChange(fugitive#EfmDir())
+        \ call fujjitive#DidChange(fujjitive#EfmDir())
   autocmd FocusGained        *
-        \ if get(g:, 'fugitive_focus_gained', !has('win32')) |
-        \   call fugitive#DidChange(0) |
+        \ if get(g:, 'fujjitive_focus_gained', !has('win32')) |
+        \   call fujjitive#DidChange(0) |
         \ endif
-  autocmd BufEnter index,index.lock,fugitive://*//
+  autocmd BufEnter index,index.lock,fujjitive://*//
         \ call s:ReloadWinStatus()
   autocmd TabEnter *
         \ call s:ReloadTabStatus()
 augroup END
 
 function! s:StatusSectionFile(heading, filename) abort
-  return get(get(get(get(b:, 'fugitive_status', {}), 'files', {}), a:heading, {}), a:filename, {})
+  return get(get(get(get(b:, 'fujjitive_status', {}), 'files', {}), a:heading, {}), a:filename, {})
 endfunction
 
 function! s:StageInfo(...) abort
@@ -4544,7 +4386,7 @@ function! s:Selection(arg1, ...) abort
   while first <= line('$') && getline(first) =~# '^$\|^[A-Z][a-z]'
     let first += 1
   endwhile
-  if first > last || &filetype !=# 'fugitive'
+  if first > last || &filetype !=# 'fujjitive'
     return []
   endif
   let flnum = first
@@ -4635,7 +4477,7 @@ function! s:StageArgs(visual) abort
     call extend(paths, record.paths)
   endfor
   if s:cpath(s:Tree(), getcwd())
-    call map(paths, 'fugitive#Path(v:val, "./")')
+    call map(paths, 'fujjitive#Path(v:val, "./")')
   endif
   return join(map(commits + paths, 's:fnameescape(v:val)'), ' ')
 endfunction
@@ -4678,7 +4520,7 @@ function! s:Do(action, visual) abort
       execute record.lnum + 1
     endif
     let success = 1
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   finally
     if reload
@@ -4722,11 +4564,11 @@ let s:file_commit_pattern = s:file_pattern . '\|^\%(\l\{3,\} \)\=[0-9a-f]\{4,\} 
 let s:item_pattern = s:file_commit_pattern . '\|^@@'
 
 function! s:NextHunk(count) abort
-  if &filetype ==# 'fugitive' && getline('.') =~# s:file_pattern
+  if &filetype ==# 'fujjitive' && getline('.') =~# s:file_pattern
     exe s:StageInline('show')
   endif
   for i in range(a:count)
-    if &filetype ==# 'fugitive'
+    if &filetype ==# 'fujjitive'
       call search(s:file_pattern . '\|^@', 'W')
       if getline('.') =~# s:file_pattern
         exe s:StageInline('show')
@@ -4745,7 +4587,7 @@ endfunction
 function! s:PreviousHunk(count) abort
   normal! 0
   for i in range(a:count)
-    if &filetype ==# 'fugitive'
+    if &filetype ==# 'fujjitive'
       if getline('.') =~# '^@' && getline(line('.') - 1) =~# s:file_pattern
         -
       endif
@@ -4897,7 +4739,7 @@ function! s:StageInlineGetDiff(diff_section, info) abort
   else
     let diff_header = 'diff --git ' . s:Quote(a:info.relative[-1]) . ' ' . s:Quote(a:info.relative[0])
   endif
-  let stdout = fugitive#Wait(a:diff_section).stdout
+  let stdout = fujjitive#Wait(a:diff_section).stdout
   let start = index(stdout, diff_header)
   if start == -1
     return [[], -1]
@@ -4914,7 +4756,7 @@ function! s:StageInlineGetDiff(diff_section, info) abort
 endfunction
 
 function! s:StageInline(mode, ...) abort
-  if &filetype !=# 'fugitive'
+  if &filetype !=# 'fujjitive'
     return ''
   endif
   let lnum1 = a:0 ? a:1 : line('.')
@@ -4937,7 +4779,7 @@ function! s:StageInline(mode, ...) abort
       let lnum -= 1
     endwhile
     let info = s:StageInfo(lnum)
-    let diff_section = get(get(get(b:, 'fugitive_status', {}), 'diff', {}), info.section, {})
+    let diff_section = get(get(get(b:, 'fujjitive_status', {}), 'diff', {}), info.section, {})
     if empty(diff_section)
       continue
     endif
@@ -4949,7 +4791,7 @@ function! s:StageInline(mode, ...) abort
       if a:mode !=# 'show'
         setlocal modifiable noreadonly
         exe 'silent keepjumps ' . (lnum + 1) . ',' . lnum2 . 'delete _'
-        call remove(b:fugitive_expanded[info.section], info.filename)
+        call remove(b:fujjitive_expanded[info.section], info.filename)
         setlocal nomodifiable readonly nomodified
       endif
       continue
@@ -4961,7 +4803,7 @@ function! s:StageInline(mode, ...) abort
     if len(diff)
       setlocal modifiable noreadonly
       silent call append(lnum, diff)
-      let b:fugitive_expanded[info.section][info.filename] = [start]
+      let b:fujjitive_expanded[info.section][info.filename] = [start]
       setlocal nomodifiable readonly nomodified
       if foldclosed(lnum+1) > 0
         silent exe (lnum+1) . ',' . (lnum+len(diff)) . 'foldopen!'
@@ -5028,7 +4870,7 @@ endfunction
 
 function! s:StageApply(info, reverse, extra) abort
   if a:info.status ==# 'R'
-    throw 'fugitive: patching renamed file not yet supported'
+    throw 'fujjitive: patching renamed file not yet supported'
   endif
   let cmd = ['apply', '-p0', '--recount'] + a:extra
   let info = a:info
@@ -5053,13 +4895,13 @@ function! s:StageApply(info, reverse, extra) abort
     endif
   endwhile
   if start == 0
-    throw 'fugitive: could not find hunk'
+    throw 'fujjitive: could not find hunk'
   elseif getline(start) !~# '^@@ '
-    throw 'fugitive: cannot apply conflict hunk'
+    throw 'fujjitive: cannot apply conflict hunk'
   endif
-  let i = b:fugitive_expanded[info.section][info.filename][0]
+  let i = b:fujjitive_expanded[info.section][info.filename][0]
   let head = []
-  let diff_lines = fugitive#Wait(b:fugitive_status.diff[info.section]).stdout
+  let diff_lines = fujjitive#Wait(b:fujjitive_status.diff[info.section]).stdout
   while get(diff_lines, i, '@') !~# '^@'
     let line = diff_lines[i]
     if line ==# '--- /dev/null'
@@ -5099,14 +4941,14 @@ function! s:StageDelete(lnum1, lnum2, count) abort
       endif
       let sub = get(s:StatusSectionFile(info.section, info.filename), 'submodule', '')
       if sub =~# '^S' && info.status ==# 'M'
-        let undo = 'Git checkout ' . fugitive#RevParse('HEAD', FugitiveExtractGitDir(info.paths[0]))[0:10] . ' --'
+        let undo = 'Git checkout ' . fujjitive#RevParse('HEAD', FujjitiveExtractJJDir(info.paths[0]))[0:10] . ' --'
       elseif sub =~# '^S'
-        let err .= '|echoerr ' . string('fugitive: will not touch submodule ' . string(info.relative[0]))
+        let err .= '|echoerr ' . string('fujjitive: will not touch submodule ' . string(info.relative[0]))
         break
       elseif info.status ==# 'D'
         let undo = 'GRemove'
       elseif info.paths[0] =~# '/$'
-        let err .= '|echoerr ' . string('fugitive: will not delete directory ' . string(info.relative[0]))
+        let err .= '|echoerr ' . string('fujjitive: will not delete directory ' . string(info.relative[0]))
         break
       else
         let undo = 'Gread ' . s:TreeChomp('hash-object', '-w', '--', info.paths[0])[0:10]
@@ -5156,12 +4998,12 @@ function! s:StageDelete(lnum1, lnum2, count) abort
         call add(restore, ':Gsplit ' . s:fnameescape(info.relative[0]) . '|' . undo)
       endif
     endfor
-  catch /^fugitive:/
+  catch /^fujjitive:/
     let err .= '|echoerr ' . string(v:exception)
   endtry
   if empty(restore)
     if len(reset_commit) && empty(err)
-      call feedkeys(':Git reset ' . reset_commit)
+      call feedkeys(':JJ reset ' . reset_commit)
     endif
     return err[1:-1]
   endif
@@ -5177,7 +5019,7 @@ function! s:StageIgnore(lnum1, lnum2, count) abort
   endfor
   call map(paths, '"/" . v:val')
   if !a:0
-    let dir = fugitive#Find('.git/info/')
+    let dir = fujjitive#Find('.jj/info/')
     if !isdirectory(dir)
       try
         call mkdir(dir)
@@ -5185,7 +5027,7 @@ function! s:StageIgnore(lnum1, lnum2, count) abort
       endtry
     endif
   endif
-  exe 'Gsplit' (a:count ? '.gitignore' : '.git/info/exclude')
+  exe 'Gsplit' (a:count ? '.gitignore' : '.jj/info/exclude')
   let last = line('$')
   if last == 1 && empty(getline(1))
     call setline(last, paths)
@@ -5197,7 +5039,7 @@ function! s:StageIgnore(lnum1, lnum2, count) abort
 endfunction
 
 function! s:DoToggleHeadHeader(value) abort
-  exe 'edit' fnameescape(fugitive#Find('.git/'))
+  exe 'edit' fnameescape(fujjitive#Find('.jj/'))
   call search('\C^index$', 'wc')
 endfunction
 
@@ -5206,13 +5048,13 @@ function! s:DoToggleHelpHeader(value) abort
 endfunction
 
 function! s:DoStagePushHeader(value) abort
-  let stat = get(b:, 'fugitive_status', {})
+  let stat = get(b:, 'fujjitive_status', {})
   let remote = get(stat, 'push_remote', '')
   let branch = substitute(get(stat, 'push', ''), '^ref/heads/', '', '')
   if empty(remote) || empty(branch)
     return
   endif
-  call feedkeys(':Git push ' . remote . ' ' . branch)
+  call feedkeys(':JJ push ' . remote . ' ' . branch)
 endfunction
 
 function! s:DoTogglePushHeader(value) abort
@@ -5220,13 +5062,13 @@ function! s:DoTogglePushHeader(value) abort
 endfunction
 
 function! s:DoStageUnpushedHeading(heading) abort
-  let stat = get(b:, 'fugitive_status', {})
+  let stat = get(b:, 'fujjitive_status', {})
   let remote = get(stat, 'push_remote', '')
   let push = get(stat, 'push', '')
   if empty(remote) || empty(push)
     return
   endif
-  call feedkeys(':Git push ' . remote . ' ' . '@:' . push)
+  call feedkeys(':JJ push ' . remote . ' ' . '@:' . push)
 endfunction
 
 function! s:DoToggleUnpushedHeading(heading) abort
@@ -5234,13 +5076,13 @@ function! s:DoToggleUnpushedHeading(heading) abort
 endfunction
 
 function! s:DoStageUnpushed(record) abort
-  let stat = get(b:, 'fugitive_status', {})
+  let stat = get(b:, 'fujjitive_status', {})
   let remote = get(stat, 'push_remote', '')
   let push = get(stat, 'push', '')
   if empty(remote) || empty(push)
     return
   endif
-  call feedkeys(':Git push ' . remote . ' ' . a:record.commit . ':' . push)
+  call feedkeys(':JJ push ' . remote . ' ' . a:record.commit . ':' . push)
 endfunction
 
 function! s:DoToggleUnpushed(record) abort
@@ -5248,7 +5090,7 @@ function! s:DoToggleUnpushed(record) abort
 endfunction
 
 function! s:DoUnstageUnpulledHeading(heading) abort
-  call feedkeys(':Git rebase')
+  call feedkeys(':JJ rebase')
 endfunction
 
 function! s:DoToggleUnpulledHeading(heading) abort
@@ -5256,7 +5098,7 @@ function! s:DoToggleUnpulledHeading(heading) abort
 endfunction
 
 function! s:DoUnstageUnpulled(record) abort
-  call feedkeys(':Git rebase ' . a:record.commit)
+  call feedkeys(':JJ rebase ' . a:record.commit)
 endfunction
 
 function! s:DoToggleUnpulled(record) abort
@@ -5264,7 +5106,7 @@ function! s:DoToggleUnpulled(record) abort
 endfunction
 
 function! s:DoUnstageUnpushed(record) abort
-  call feedkeys(':Git -c sequence.editor=true rebase --interactive --autosquash ' . a:record.commit . '^')
+  call feedkeys(':JJ -c sequence.editor=true rebase --interactive --autosquash ' . a:record.commit . '^')
 endfunction
 
 function! s:DoToggleStagedHeading(...) abort
@@ -5384,13 +5226,13 @@ function! s:StagePatch(lnum1, lnum2, ...) abort
     if !empty(reset)
       execute "tab Git reset --patch -- ".join(map(reset,'fnameescape(v:val)'))
     endif
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
   return s:ReloadStatus()
 endfunction
 
-" Section: :Git commit, :Git revert
+" Section: :JJ commit, :JJ revert
 
 function! s:CommitInteractive(line1, line2, range, bang, mods, options, patch) abort
   let status = s:StatusCommand(a:line1, a:line2, a:range, get(a:options, 'curwin') && a:line2 < 0 ? 0 : a:line2, a:bang, a:mods, '', '', [], a:options)
@@ -5426,7 +5268,7 @@ function! s:RevertSubcommand(line1, line2, range, bang, mods, options) abort
   return {'insert_args': ['--edit']}
 endfunction
 
-function! fugitive#CommitComplete(A, L, P, ...) abort
+function! fujjitive#CommitComplete(A, L, P, ...) abort
   let dir = a:0 ? a:1 : s:Dir()
   if a:A =~# '^--fixup=\|^--squash='
     let commits = s:LinesError([dir, 'log', '--pretty=format:%s', '@{upstream}..'])[0]
@@ -5439,35 +5281,35 @@ function! fugitive#CommitComplete(A, L, P, ...) abort
       return s:FilterEscape(map(commits, 'pre . tr(v:val, "\\ !^$*?[]()''\"`&;<>|#", "....................")'), a:A)
     endif
   else
-    return s:CompleteSub('commit', a:A, a:L, a:P, function('fugitive#CompletePath'), a:000)
+    return s:CompleteSub('commit', a:A, a:L, a:P, function('fujjitive#CompletePath'), a:000)
   endif
   return []
 endfunction
 
-function! fugitive#RevertComplete(A, L, P, ...) abort
+function! fujjitive#RevertComplete(A, L, P, ...) abort
   return s:CompleteSub('revert', a:A, a:L, a:P, function('s:CompleteRevision'), a:000)
 endfunction
 
-" Section: :Git merge, :Git rebase, :Git pull
+" Section: :JJ merge, :JJ rebase, :JJ pull
 
-function! fugitive#MergeComplete(A, L, P, ...) abort
+function! fujjitive#MergeComplete(A, L, P, ...) abort
   return s:CompleteSub('merge', a:A, a:L, a:P, function('s:CompleteRevision'), a:000)
 endfunction
 
-function! fugitive#RebaseComplete(A, L, P, ...) abort
+function! fujjitive#RebaseComplete(A, L, P, ...) abort
   return s:CompleteSub('rebase', a:A, a:L, a:P, function('s:CompleteRevision'), a:000)
 endfunction
 
-function! fugitive#PullComplete(A, L, P, ...) abort
+function! fujjitive#PullComplete(A, L, P, ...) abort
   return s:CompleteSub('pull', a:A, a:L, a:P, function('s:CompleteRemote'), a:000)
 endfunction
 
 function! s:MergeSubcommand(line1, line2, range, bang, mods, options) abort
   if empty(a:options.subcommand_args) && (
-        \ filereadable(fugitive#Find('.git/MERGE_MSG', a:options)) ||
-        \ isdirectory(fugitive#Find('.git/rebase-apply', a:options)) ||
-        \  !empty(s:TreeChomp([a:options.git_dir, 'diff-files', '--diff-filter=U'])))
-    return 'echoerr ":Git merge for loading conflicts has been removed in favor of :Git mergetool"'
+        \ filereadable(fujjitive#Find('.jj/MERGE_MSG', a:options)) ||
+        \ isdirectory(fujjitive#Find('.jj/rebase-apply', a:options)) ||
+        \  !empty(s:TreeChomp([a:options.jj_dir, 'diff-files', '--diff-filter=U'])))
+    return 'echoerr ":JJ merge for loading conflicts has been removed in favor of :JJ resolve"'
   endif
   return {}
 endfunction
@@ -5475,12 +5317,12 @@ endfunction
 function! s:RebaseSubcommand(line1, line2, range, bang, mods, options) abort
   let args = a:options.subcommand_args
   if s:HasOpt(args, '--autosquash') && !s:HasOpt(args, '-i', '--interactive')
-    return {'env': {'GIT_SEQUENCE_EDITOR': 'true'}, 'insert_args': ['--interactive']}
+    return {'env': {'JJ_SEQUENCE_EDITOR': 'true'}, 'insert_args': ['--interactive']}
   endif
   return {}
 endfunction
 
-" Section: :Git bisect
+" Section: :JJ bisect
 
 function! s:CompleteBisect(A, L, P, ...) abort
   let bisect_subcmd = matchstr(a:L, '\u\w*[! ] *.\{-\}\s\@<=\zs[^-[:space:]]\S*\ze ')
@@ -5489,14 +5331,14 @@ function! s:CompleteBisect(A, L, P, ...) abort
     return s:FilterEscape(subcmds, a:A)
   endif
   let dir = a:0 ? a:1 : s:Dir()
-  return fugitive#CompleteObject(a:A, dir)
+  return fujjitive#CompleteObject(a:A, dir)
 endfunction
 
-function! fugitive#BisectComplete(A, L, P, ...) abort
+function! fujjitive#BisectComplete(A, L, P, ...) abort
   return s:CompleteSub('bisect', a:A, a:L, a:P, function('s:CompleteBisect'), a:000)
 endfunction
 
-" Section: :Git difftool, :Git mergetool
+" Section: :JJ difftool, :JJ resolve
 
 function! s:ToolItems(state, from, to, offsets, text, ...) abort
   let items = []
@@ -5615,14 +5457,14 @@ function! s:ToolStream(line1, line2, range, bang, mods, options, args, state) ab
     endif
     let i += 1
   endwhile
-  call fugitive#Autowrite()
+  call fujjitive#Autowrite()
   let a:state.mode = 'init'
   let a:state.from = ''
   let a:state.to = ''
-  let exec = s:UserCommandList({'git': a:options.git, 'git_dir': a:options.git_dir}) + ['-c', 'diff.context=0']
+  let exec = s:UserCommandList({'git': a:options.git, 'jj_dir': a:options.jj_dir}) + ['-c', 'diff.context=0']
   let exec += a:options.flags + ['--no-pager', 'diff', '--no-ext-diff', '--no-color', '--no-prefix'] + argv
   if prompt
-    let title = ':Git ' . s:fnameescape(a:options.flags + [a:options.subcommand] + a:options.subcommand_args)
+    let title = ':JJ ' . s:fnameescape(a:options.flags + [a:options.subcommand] + a:options.subcommand_args)
     return s:QuickfixStream(get(a:options, 'curwin') && a:line2 < 0 ? 0 : a:line2, 'difftool', title, exec, !a:bang, a:mods, s:function('s:ToolParse'), a:state)
   else
     let filename = ''
@@ -5645,14 +5487,14 @@ function! s:ToolStream(line1, line2, range, bang, mods, options, args, state) ab
 endfunction
 
 function! s:MergetoolSubcommand(line1, line2, range, bang, mods, options) abort
-  let dir = a:options.git_dir
+  let dir = a:options.jj_dir
   exe s:DirCheck(dir)
   let i = 0
   let prompt = 1
   let cmd = ['diff', '--diff-filter=U']
   let state = {'name_only': 0}
   let state.diff = [{'prefix': ':2:', 'module': ':2:'}, {'prefix': ':3:', 'module': ':3:'}, {'prefix': ':(top)'}]
-  call map(state.diff, 'extend(v:val, {"filename": fugitive#Find(v:val.prefix, dir)})')
+  call map(state.diff, 'extend(v:val, {"filename": fujjitive#Find(v:val.prefix, dir)})')
   return s:ToolStream(a:line1, a:line2, a:range, a:bang, a:mods, a:options, ['--diff-filter=U'] + a:options.subcommand_args, state)
 endfunction
 
@@ -5735,22 +5577,22 @@ function! s:DifftoolSubcommand(line1, line2, range, bang, mods, options) abort
   if len(commits) > 2
     call add(commits, remove(commits, 0))
   endif
-  call map(commits, 'extend(v:val, {"filename": fugitive#Find(v:val.prefix, dir)})')
+  call map(commits, 'extend(v:val, {"filename": fujjitive#Find(v:val.prefix, dir)})')
   let state.diff = commits
   return s:ToolStream(a:line1, a:line2, a:range, a:bang, a:mods, a:options, argv, state)
 endfunction
 
 " Section: :Ggrep, :Glog
 
-if !exists('g:fugitive_summary_format')
-  let g:fugitive_summary_format = '%s'
+if !exists('g:fujjitive_summary_format')
+  let g:fujjitive_summary_format = '%s'
 endif
 
-function! fugitive#GrepComplete(A, L, P) abort
+function! fujjitive#GrepComplete(A, L, P) abort
   return s:CompleteSub('grep', a:A, a:L, a:P)
 endfunction
 
-function! fugitive#LogComplete(A, L, P) abort
+function! fujjitive#LogComplete(A, L, P) abort
   return s:CompleteSub('log', a:A, a:L, a:P)
 endfunction
 
@@ -5794,7 +5636,7 @@ function! s:GrepParseLine(options, quiet, dir, line) abort
   if entry.module !~# ':'
     let entry.filename = s:PathJoin(a:options.prefix, entry.module)
   else
-    let entry.filename = fugitive#Find(matchstr(entry.module, '^[^:]*:') .
+    let entry.filename = fujjitive#Find(matchstr(entry.module, '^[^:]*:') .
           \ substitute(matchstr(entry.module, ':\zs.*'), '/\=:', '/', 'g'), a:dir)
   endif
   return entry
@@ -5804,7 +5646,7 @@ let s:grep_combine_flags = '[aiIrhHEGPFnlLzocpWq]\{-\}'
 function! s:GrepOptions(args, dir) abort
   let options = {'name_only': 0, 'name_count': 0, 'line_number': 0}
   let tree = s:Tree(a:dir)
-  let prefix = empty(tree) ? fugitive#Find(':0:', a:dir) :
+  let prefix = empty(tree) ? fujjitive#Find(':0:', a:dir) :
         \ s:VimSlash(tree . '/')
   let options.prefix = prefix
   for arg in a:args
@@ -5823,7 +5665,7 @@ function! s:GrepOptions(args, dir) abort
       let options.name_only = 1
     endif
     if arg ==# '--cached'
-      let options.prefix = fugitive#Find(':0:', a:dir)
+      let options.prefix = fujjitive#Find(':0:', a:dir)
     elseif arg ==# '--no-cached'
       let options.prefix = prefix
     endif
@@ -5883,12 +5725,12 @@ function! s:GrepSubcommand(line1, line2, range, bang, mods, options) abort
   if handle < 0 ? !quiet : !handle
     return {}
   endif
-  call fugitive#Autowrite()
+  call fujjitive#Autowrite()
   let listnr = get(a:options, 'curwin') && a:line2 < 0 ? 0 : a:line2
   if s:HasOpt(args, '--no-line-number')
     let lc = []
   else
-    let lc = fugitive#GitVersion(2, 19) ? ['-n', '--column'] : ['-n']
+    let lc = fujjitive#GitVersion(2, 19) ? ['-n', '--column'] : ['-n']
   endif
   let cmd = ['grep', '--no-color', '--full-name'] + lc
   let dir = s:Dir(a:options)
@@ -5905,7 +5747,7 @@ function! s:GrepSubcommand(line1, line2, range, bang, mods, options) abort
         \ 'git': a:options.git,
         \ 'flags': a:options.flags,
         \ 'args': cmd + args,
-        \ 'git_dir': s:GitDir(a:options),
+        \ 'jj_dir': s:JJDir(a:options),
         \ 'cwd': s:UserCommandCwd(a:options),
         \ 'filetype': 'git',
         \ 'mods': s:Mods(a:mods),
@@ -5950,12 +5792,12 @@ function! s:GrepSubcommand(line1, line2, range, bang, mods, options) abort
   endif
 endfunction
 
-function! fugitive#GrepCommand(line1, line2, range, bang, mods, arg) abort
-  return fugitive#Command(a:line1, a:line2, a:range, a:bang, a:mods,
+function! fujjitive#GrepCommand(line1, line2, range, bang, mods, arg) abort
+  return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods,
         \ "grep -O " . a:arg)
 endfunction
 
-let s:log_diff_context = '{"filename": fugitive#Find(v:val . from, a:dir), "lnum": get(offsets, v:key), "module": strpart(v:val, 0, len(a:state.base_module)) . from}'
+let s:log_diff_context = '{"filename": fujjitive#Find(v:val . from, a:dir), "lnum": get(offsets, v:key), "module": strpart(v:val, 0, len(a:state.base_module)) . from}'
 
 function! s:LogFlushQueue(state, dir) abort
   let queue = remove(a:state, 'queue')
@@ -6052,7 +5894,7 @@ function! s:LogParse(state, dir, prefix, line) abort
   return []
 endfunction
 
-function! fugitive#LogCommand(line1, count, range, bang, mods, args, type) abort
+function! fujjitive#LogCommand(line1, count, range, bang, mods, args, type) abort
   exe s:VersionCheck()
   let dir = s:Dir()
   exe s:DirCheck(dir)
@@ -6070,10 +5912,10 @@ function! fugitive#LogCommand(line1, count, range, bang, mods, args, type) abort
     let paths = []
   endif
   if a:line1 == 0 && a:count
-    let path = fugitive#Path(bufname(a:count), '/', dir)
+    let path = fujjitive#Path(bufname(a:count), '/', dir)
     let titlepre = ':0,' . a:count
   elseif a:count >= 0
-    let path = fugitive#Path(@%, '/', dir)
+    let path = fujjitive#Path(@%, '/', dir)
     let titlepre = a:count == 0 ? ':0,' . bufnr('') : ':'
   else
     let titlepre = ':'
@@ -6118,7 +5960,7 @@ function! fugitive#LogCommand(line1, count, range, bang, mods, args, type) abort
   if s:HasOpt(args, '-g', '--walk-reflogs')
     let format = "%gd %P\t%H %gs"
   else
-    let format = "%h %P\t%H " . g:fugitive_summary_format
+    let format = "%h %P\t%H " . g:fujjitive_summary_format
   endif
   let cmd = ['--no-pager']
   call extend(cmd, ['-c', 'diff.context=0', '-c', 'diff.noprefix=false', 'log'] +
@@ -6134,7 +5976,7 @@ endfunction
 function! s:UsableWin(nr) abort
   return a:nr && !getwinvar(a:nr, '&previewwindow') && !getwinvar(a:nr, '&winfixwidth') &&
         \ !getwinvar(a:nr, '&winfixbuf') &&
-        \ (empty(getwinvar(a:nr, 'fugitive_status')) || getbufvar(winbufnr(a:nr), 'fugitive_type') !=# 'index') &&
+        \ (empty(getwinvar(a:nr, 'fujjitive_status')) || getbufvar(winbufnr(a:nr), 'fujjitive_type') !=# 'index') &&
         \ index(['gitrebase', 'gitcommit'], getbufvar(winbufnr(a:nr), '&filetype')) < 0 &&
         \ index(['nofile','help','quickfix', 'terminal'], getbufvar(winbufnr(a:nr), '&buftype')) < 0
 endfunction
@@ -6197,11 +6039,11 @@ endfunction
 
 function! s:OpenExpand(dir, file, wants_cmd) abort
   if a:file ==# '-'
-    let result = fugitive#Result()
+    let result = fujjitive#Result()
     if has_key(result, 'file')
       let efile = result.file
     else
-      throw 'fugitive: no previous command output'
+      throw 'fujjitive: no previous command output'
     endif
   else
     let efile = s:Expand(a:file)
@@ -6211,7 +6053,7 @@ function! s:OpenExpand(dir, file, wants_cmd) abort
     return [url, a:wants_cmd ? lnum : 0]
   endif
   let url = s:Generate(efile, a:dir)
-  if a:wants_cmd && a:file[0] ==# '>' && efile[0] !=# '>' && get(b:, 'fugitive_type', '') isnot# 'tree' && &filetype !=# 'netrw'
+  if a:wants_cmd && a:file[0] ==# '>' && efile[0] !=# '>' && get(b:, 'fujjitive_type', '') isnot# 'tree' && &filetype !=# 'netrw'
     let line = line('.')
     if s:Slash(expand('%:p')) !=# s:Slash(url)
       let diffcmd = 'diff'
@@ -6250,7 +6092,7 @@ function! s:OpenExpand(dir, file, wants_cmd) abort
   return [url, 0]
 endfunction
 
-function! fugitive#DiffClose() abort
+function! fujjitive#DiffClose() abort
   let mywinnr = winnr()
   for winnr in [winnr('#')] + range(winnr('$'),1,-1)
     if winnr != mywinnr && getwinvar(winnr,'&diff')
@@ -6265,7 +6107,7 @@ function! fugitive#DiffClose() abort
 endfunction
 
 function! s:BlurStatus() abort
-  if (&previewwindow || getwinvar(winnr(), '&winfixbuf') is# 1 || exists('w:fugitive_status')) && get(b:, 'fugitive_type', '') ==# 'index'
+  if (&previewwindow || getwinvar(winnr(), '&winfixbuf') is# 1 || exists('w:fujjitive_status')) && get(b:, 'fujjitive_type', '') ==# 'index'
     let winnrs = filter([winnr('#')] + range(1, winnr('$')), 's:UsableWin(v:val)')
     if len(winnrs)
       exe winnrs[0].'wincmd w'
@@ -6273,13 +6115,13 @@ function! s:BlurStatus() abort
       belowright new +setl\ bufhidden=delete
     endif
     if &diff
-      call fugitive#DiffClose()
+      call fujjitive#DiffClose()
     endif
   endif
 endfunction
 
 let s:bang_edits = {'split': 'Git', 'vsplit': 'vertical Git', 'tabedit': 'tab Git', 'pedit': 'Git!'}
-function! fugitive#Open(cmd, bang, mods, arg, ...) abort
+function! fujjitive#Open(cmd, bang, mods, arg, ...) abort
   exe s:VersionCheck()
   if a:bang
     return 'echoerr ' . string(':G' . a:cmd . '! for temp buffer output has been replaced by :' . get(s:bang_edits, a:cmd, 'Git') . ' --paginate')
@@ -6287,7 +6129,7 @@ function! fugitive#Open(cmd, bang, mods, arg, ...) abort
 
   try
     let [file, pre] = s:OpenParse(a:arg, 1, 0)
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
   let mods = s:Mods(a:mods)
@@ -6297,13 +6139,13 @@ function! fugitive#Open(cmd, bang, mods, arg, ...) abort
   return mods . a:cmd . pre . ' ' . s:fnameescape(file)
 endfunction
 
-function! fugitive#DropCommand(line1, count, range, bang, mods, arg, ...) abort
+function! fujjitive#DropCommand(line1, count, range, bang, mods, arg, ...) abort
   exe s:VersionCheck()
 
   let mods = s:Mods(a:mods)
   try
     let [files, pre] = s:OpenParse(a:arg, 1, 1)
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
   if empty(files)
@@ -6332,42 +6174,42 @@ function! s:ReadPrepare(line1, count, range, mods) abort
   return [pre . 'keepalt ' . mods . after . 'read', '|' . delete . 'diffupdate' . (a:count < 0 ? '|' . line('.') : '')]
 endfunction
 
-function! fugitive#ReadCommand(line1, count, range, bang, mods, arg, ...) abort
+function! fujjitive#ReadCommand(line1, count, range, bang, mods, arg, ...) abort
   exe s:VersionCheck()
   let [read, post] = s:ReadPrepare(a:line1, a:count, a:range, a:mods)
   try
     let [file, pre] = s:OpenParse(a:arg, 0, 0)
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
-  if file =~# '^fugitive:' && a:count is# 0
-    return 'exe ' .string('keepalt ' . s:Mods(a:mods) . fugitive#FileReadCmd(file, 0, pre)) . '|diffupdate'
+  if file =~# '^fujjitive:' && a:count is# 0
+    return 'exe ' .string('keepalt ' . s:Mods(a:mods) . fujjitive#FileReadCmd(file, 0, pre)) . '|diffupdate'
   endif
   return read . ' ' . pre . ' ' . s:fnameescape(file) . post
 endfunction
 
-function! fugitive#EditComplete(A, L, P) abort
+function! fujjitive#EditComplete(A, L, P) abort
   if a:A =~# '^>'
     return map(s:FilterEscape(s:CompleteHeads(s:Dir()), a:A[1:-1]), "'>' . v:val")
   else
-    return fugitive#CompleteObject(a:A, a:L, a:P)
+    return fujjitive#CompleteObject(a:A, a:L, a:P)
   endif
 endfunction
 
-function! fugitive#ReadComplete(A, L, P) abort
-  return fugitive#EditComplete(a:A, a:L, a:P)
+function! fujjitive#ReadComplete(A, L, P) abort
+  return fujjitive#EditComplete(a:A, a:L, a:P)
 endfunction
 
 " Section: :Gwrite, :Gwq
 
-function! fugitive#WriteCommand(line1, line2, range, bang, mods, arg, ...) abort
+function! fujjitive#WriteCommand(line1, line2, range, bang, mods, arg, ...) abort
   exe s:VersionCheck()
-  if s:cpath(expand('%:p'), fugitive#Find('.git/COMMIT_EDITMSG')) && empty(a:arg)
-    return (empty($GIT_INDEX_FILE) ? 'write|bdelete' : 'wq') . (a:bang ? '!' : '')
-  elseif get(b:, 'fugitive_type', '') ==# 'index' && empty(a:arg)
+  if s:cpath(expand('%:p'), fujjitive#Find('.jj/COMMIT_EDITMSG')) && empty(a:arg)
+    return (empty($JJ_INDEX_FILE) ? 'write|bdelete' : 'wq') . (a:bang ? '!' : '')
+  elseif get(b:, 'fujjitive_type', '') ==# 'index' && empty(a:arg)
     return 'Git commit'
   elseif &buftype ==# 'nowrite' && getline(4) =~# '^[+-]\{3\} '
-    return 'echoerr ' . string('fugitive: :Gwrite from :Git diff has been removed in favor of :Git add --edit')
+    return 'echoerr ' . string('fujjitive: :Gwrite from :JJ diff has been removed in favor of :JJ add --edit')
   endif
   let mytab = tabpagenr()
   let mybufnr = bufnr('')
@@ -6377,20 +6219,20 @@ function! fugitive#WriteCommand(line1, line2, range, bang, mods, arg, ...) abort
     let after = '|' . remove(args, 0)[1:-1]
   endif
   try
-    let file = len(args) ? s:Generate(s:Expand(join(args, ' '))) : fugitive#Real(@%)
-  catch /^fugitive:/
+    let file = len(args) ? s:Generate(s:Expand(join(args, ' '))) : fujjitive#Real(@%)
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
   if empty(file)
-    return 'echoerr '.string('fugitive: cannot determine file path')
+    return 'echoerr '.string('fujjitive: cannot determine file path')
   endif
-  if file =~# '^fugitive:'
+  if file =~# '^fujjitive:'
     return 'write' . (a:bang ? '! ' : ' ') . s:fnameescape(file)
   endif
   exe s:DirCheck()
-  let always_permitted = s:cpath(fugitive#Real(@%), file) && empty(s:DirCommitFile(@%)[1])
+  let always_permitted = s:cpath(fujjitive#Real(@%), file) && empty(s:DirCommitFile(@%)[1])
   if !always_permitted && !a:bang && (len(s:TreeChomp('diff', '--name-status', 'HEAD', '--', file)) || len(s:TreeChomp('ls-files', '--others', '--', file)))
-    let v:errmsg = 'fugitive: file has uncommitted changes (use ! to override)'
+    let v:errmsg = 'fujjitive: file has uncommitted changes (use ! to override)'
     return 'echoerr v:errmsg'
   endif
   let treebufnr = 0
@@ -6439,16 +6281,16 @@ function! fugitive#WriteCommand(line1, line2, range, bang, mods, arg, ...) abort
 
   let message = s:ChompStderr(['add'] + (a:bang ? ['--force'] : []) + ['--', file])
   if len(message)
-    let v:errmsg = 'fugitive: '.message
+    let v:errmsg = 'fujjitive: '.message
     return 'echoerr v:errmsg'
   endif
-  if s:cpath(fugitive#Real(@%), file) && s:DirCommitFile(@%)[1] =~# '^\d$'
+  if s:cpath(fujjitive#Real(@%), file) && s:DirCommitFile(@%)[1] =~# '^\d$'
     setlocal nomodified
   endif
 
-  let one = fugitive#Find(':1:'.file)
-  let two = fugitive#Find(':2:'.file)
-  let three = fugitive#Find(':3:'.file)
+  let one = fujjitive#Find(':1:'.file)
+  let two = fujjitive#Find(':2:'.file)
+  let three = fujjitive#Find(':3:'.file)
   for nr in range(1,bufnr('$'))
     let name = fnamemodify(bufname(nr), ':p')
     if bufloaded(nr) && !getbufvar(nr,'&modified') && (name ==# one || name ==# two || name ==# three)
@@ -6457,7 +6299,7 @@ function! fugitive#WriteCommand(line1, line2, range, bang, mods, arg, ...) abort
   endfor
 
   unlet! restorewinnr
-  let zero = fugitive#Find(':0:'.file)
+  let zero = fujjitive#Find(':0:'.file)
   exe s:DoAutocmd('BufWritePost ' . s:fnameescape(zero))
   for tab in range(1,tabpagenr('$'))
     for winnr in range(1,tabpagewinnr(tab,'$'))
@@ -6487,16 +6329,16 @@ function! fugitive#WriteCommand(line1, line2, range, bang, mods, arg, ...) abort
       endif
     endfor
   endfor
-  call fugitive#DidChange()
+  call fujjitive#DidChange()
   return 'checktime' . after
 endfunction
 
-function! fugitive#WqCommand(...) abort
+function! fujjitive#WqCommand(...) abort
   let bang = a:4 ? '!' : ''
-  if s:cpath(expand('%:p'), fugitive#Find('.git/COMMIT_EDITMSG'))
+  if s:cpath(expand('%:p'), fujjitive#Find('.jj/COMMIT_EDITMSG'))
     return 'wq'.bang
   endif
-  let result = call('fugitive#WriteCommand', a:000)
+  let result = call('fujjitive#WriteCommand', a:000)
   if result =~# '^\%(write\|wq\|echoerr\)'
     return s:sub(result,'^write','wq')
   else
@@ -6504,7 +6346,7 @@ function! fugitive#WqCommand(...) abort
   endif
 endfunction
 
-" Section: :Git push, :Git fetch
+" Section: :JJ push, :JJ fetch
 
 function! s:CompletePush(A, L, P, ...) abort
   let dir = a:0 ? a:1 : s:Dir()
@@ -6525,11 +6367,11 @@ function! s:CompletePush(A, L, P, ...) abort
   return s:FilterEscape(matches, a:A)
 endfunction
 
-function! fugitive#PushComplete(A, L, P, ...) abort
+function! fujjitive#PushComplete(A, L, P, ...) abort
   return s:CompleteSub('push', a:A, a:L, a:P, function('s:CompletePush'), a:000)
 endfunction
 
-function! fugitive#FetchComplete(A, L, P, ...) abort
+function! fujjitive#FetchComplete(A, L, P, ...) abort
   return s:CompleteSub('fetch', a:A, a:L, a:P, function('s:CompleteRemote'), a:000)
 endfunction
 
@@ -6543,7 +6385,7 @@ endfunction
 
 " Section: :Gdiff
 
-augroup fugitive_diff
+augroup fujjitive_diff
   autocmd!
   autocmd BufWinLeave * nested
         \ if s:can_diffoff(+expand('<abuf>')) && s:diff_window_count() == 2 |
@@ -6560,7 +6402,7 @@ function! s:can_diffoff(buf) abort
         \ !empty(getwinvar(bufwinnr(a:buf), 'fugitive_diff_restore'))
 endfunction
 
-function! fugitive#CanDiffoff(buf) abort
+function! fujjitive#CanDiffoff(buf) abort
   return s:can_diffoff(bufnr(a:buf))
 endfunction
 
@@ -6616,7 +6458,7 @@ function! s:IsConflicted() abort
   return len(@%) && !empty(s:ChompDefault('', ['ls-files', '--unmerged', '--', expand('%:p')]))
 endfunction
 
-function! fugitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
+function! fujjitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
   exe s:VersionCheck()
   let args = s:ArgSplit(a:arg)
   let post = ''
@@ -6625,7 +6467,7 @@ function! fugitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
     if args[0] =~? '^++novertical$'
       let autodir = 0
     else
-      return 'echoerr ' . string('fugitive: unknown option ' . args[0])
+      return 'echoerr ' . string('fujjitive: unknown option ' . args[0])
     endif
     call remove(args, 0)
   endwhile
@@ -6666,7 +6508,7 @@ function! fugitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
         let equalalways = 0
         set equalalways
       endif
-      execute mods 'split' s:fnameescape(fugitive#Find(parents[0]))
+      execute mods 'split' s:fnameescape(fujjitive#Find(parents[0]))
       call s:Map('n', 'dp', ':diffput '.nr.'<Bar>diffupdate<CR>', '<silent>')
       let nr2 = bufnr('')
       call s:diffthis()
@@ -6674,7 +6516,7 @@ function! fugitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
       call s:Map('n', 'd2o', ':diffget '.nr2.'<Bar>diffupdate<CR>', '<silent>')
       let mods = substitute(mods, '\Cleftabove\|rightbelow\|aboveleft\|belowright', '\=submatch(0) =~# "f" ? "rightbelow" : "leftabove"', '')
       for i in range(len(parents)-1, 1, -1)
-        execute mods 'split' s:fnameescape(fugitive#Find(parents[i]))
+        execute mods 'split' s:fnameescape(fujjitive#Find(parents[i]))
         call s:Map('n', 'dp', ':diffput '.nr.'<Bar>diffupdate<CR>', '<silent>')
         let nrx = bufnr('')
         call s:diffthis()
@@ -6697,11 +6539,11 @@ function! fugitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
         exe s:DirCheck()
         let file = s:Relative(arg . ':')
       elseif arg =~# '^[~^]\d*$'
-        return 'echoerr ' . string('fugitive: change ' . arg . ' to !' . arg . ' to diff against ancestor')
+        return 'echoerr ' . string('fujjitive: change ' . arg . ' to !' . arg . ' to diff against ancestor')
       else
         try
-          let file = arg =~# '^:/.' ? fugitive#RevParse(arg) . s:Relative(':') : s:Expand(arg)
-        catch /^fugitive:/
+          let file = arg =~# '^:/.' ? fujjitive#RevParse(arg) . s:Relative(':') : s:Expand(arg)
+        catch /^fujjitive:/
           return 'echoerr ' . string(v:exception)
         endtry
       endif
@@ -6728,7 +6570,7 @@ function! fugitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
       let mods = s:Mods(a:mods, 'leftabove')
     endif
     let spec = s:Generate(file)
-    if spec =~# '^fugitive:' && empty(s:DirCommitFile(spec)[2])
+    if spec =~# '^fujjitive:' && empty(s:DirCommitFile(spec)[2])
       let spec = s:VimSlash(spec . s:Relative('/'))
     endif
     exe pre
@@ -6747,7 +6589,7 @@ function! fugitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
       endif
     endif
     return post
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   finally
     if exists('l:equalalways')
@@ -6766,7 +6608,7 @@ function! s:Move(force, rename, destination) abort
   let dir = s:Dir()
   exe s:DirCheck(dir)
   if s:DirCommitFile(@%)[1] !~# '^0\=$' || empty(@%)
-    return 'echoerr ' . string('fugitive: mv not supported for this buffer')
+    return 'echoerr ' . string('fujjitive: mv not supported for this buffer')
   endif
   if a:rename
     let default_root = expand('%:p:s?[\/]$??:h') . '/'
@@ -6798,14 +6640,14 @@ function! s:Move(force, rename, destination) abort
   if isdirectory(@%)
     setlocal noswapfile
   endif
-  let exec = fugitive#Execute(['mv'] + (a:force ? ['-f'] : []) + ['--', expand('%:p'), destination], dir)
+  let exec = fujjitive#Execute(['mv'] + (a:force ? ['-f'] : []) + ['--', expand('%:p'), destination], dir)
   if exec.exit_status && exec.stderr !=# ['']
-    return 'echoerr ' .string('fugitive: '.s:JoinChomp(exec.stderr))
+    return 'echoerr ' .string('fujjitive: '.s:JoinChomp(exec.stderr))
   endif
   if isdirectory(destination)
     let destination = fnamemodify(s:sub(destination,'/$','').'/'.expand('%:t'),':.')
   endif
-  let reload = '|call fugitive#DidChange(' . string(exec) . ')'
+  let reload = '|call fujjitive#DidChange(' . string(exec) . ')'
   if empty(s:DirCommitFile(@%)[1])
     if isdirectory(destination)
       return 'keepalt edit '.s:fnameescape(destination) . reload
@@ -6813,24 +6655,24 @@ function! s:Move(force, rename, destination) abort
       return 'keepalt saveas! '.s:fnameescape(destination) . reload
     endif
   else
-    return 'file '.s:fnameescape(fugitive#Find(':0:'.destination, dir)) . reload
+    return 'file '.s:fnameescape(fujjitive#Find(':0:'.destination, dir)) . reload
   endif
 endfunction
 
-function! fugitive#RenameComplete(A,L,P) abort
+function! fujjitive#RenameComplete(A,L,P) abort
   if a:A =~# '^[.:]\=/'
-    return fugitive#CompletePath(a:A)
+    return fujjitive#CompletePath(a:A)
   else
     let pre = s:Slash(fnamemodify(expand('%:p:s?[\/]$??'), ':h')) . '/'
-    return map(fugitive#CompletePath(pre.a:A), 'strpart(v:val, len(pre))')
+    return map(fujjitive#CompletePath(pre.a:A), 'strpart(v:val, len(pre))')
   endif
 endfunction
 
-function! fugitive#MoveCommand(line1, line2, range, bang, mods, arg, ...) abort
+function! fujjitive#MoveCommand(line1, line2, range, bang, mods, arg, ...) abort
   return s:Move(a:bang, 0, a:arg)
 endfunction
 
-function! fugitive#RenameCommand(line1, line2, range, bang, mods, arg, ...) abort
+function! fujjitive#RenameCommand(line1, line2, range, bang, mods, arg, ...) abort
   return s:Move(a:bang, 1, a:arg)
 endfunction
 
@@ -6843,36 +6685,36 @@ function! s:Remove(after, force) abort
   elseif s:DirCommitFile(@%)[1] ==# '0'
     let cmd = ['rm','--cached']
   else
-    return 'echoerr ' . string('fugitive: rm not supported for this buffer')
+    return 'echoerr ' . string('fujjitive: rm not supported for this buffer')
   endif
   if a:force
     let cmd += ['--force']
   endif
   let message = s:ChompStderr(cmd + ['--', expand('%:p')], dir)
   if len(message)
-    let v:errmsg = 'fugitive: '.s:sub(message,'error:.*\zs\n\(.*-f.*',' (add ! to force)')
+    let v:errmsg = 'fujjitive: '.s:sub(message,'error:.*\zs\n\(.*-f.*',' (add ! to force)')
     return 'echoerr '.string(v:errmsg)
   else
-    return a:after . (a:force ? '!' : ''). '|call fugitive#DidChange(' . string(dir) . ')'
+    return a:after . (a:force ? '!' : ''). '|call fujjitive#DidChange(' . string(dir) . ')'
   endif
 endfunction
 
-function! fugitive#RemoveCommand(line1, line2, range, bang, mods, arg, ...) abort
+function! fujjitive#RemoveCommand(line1, line2, range, bang, mods, arg, ...) abort
   return s:Remove('edit', a:bang)
 endfunction
 
-function! fugitive#UnlinkCommand(line1, line2, range, bang, mods, arg, ...) abort
+function! fujjitive#UnlinkCommand(line1, line2, range, bang, mods, arg, ...) abort
   return s:Remove('edit', a:bang)
 endfunction
 
-function! fugitive#DeleteCommand(line1, line2, range, bang, mods, arg, ...) abort
+function! fujjitive#DeleteCommand(line1, line2, range, bang, mods, arg, ...) abort
   return s:Remove('bdelete', a:bang)
 endfunction
 
-" Section: :Git blame
+" Section: :JJ blame
 
 function! s:Keywordprg() abort
-  let args = ' --git-dir=' . escape(FugitiveGitPath(s:GitDir()), "\\\"' ")
+  let args = ' --git-dir=' . escape(FujjitiveJJPath(s:JJDir()), "\\\"' ")
   if has('gui_running') && !has('win32')
     return s:GitShellCmd() . ' --no-pager' . args . ' log -1'
   else
@@ -6892,7 +6734,7 @@ endfunction
 
 function! s:BlameBufnr(...) abort
   let state = s:TempState(a:0 ? a:1 : bufnr(''))
-  if get(state, 'filetype', '') ==# 'fugitiveblame'
+  if get(state, 'filetype', '') ==# 'fujjitiveblame'
     return get(state, 'origin_bufnr', -1)
   else
     return -1
@@ -6902,14 +6744,14 @@ endfunction
 function! s:BlameCommitFileLnum(...) abort
   let line = a:0 ? a:1 : getline('.')
   let state = a:0 > 1 ? a:2 : s:TempState()
-  if get(state, 'filetype', '') !=# 'fugitiveblame'
+  if get(state, 'filetype', '') !=# 'fujjitiveblame'
     return ['', '', 0]
   endif
   let commit = matchstr(line, '^\^\=[?*]*\zs\x\+')
   if commit =~# '^0\+$'
     let commit = ''
   elseif has_key(state, 'blame_reverse_end')
-    let commit = get(s:LinesError([state.git_dir, 'rev-list', '--ancestry-path', '--reverse', commit . '..' . state.blame_reverse_end])[0], 0, '')
+    let commit = get(s:LinesError([state.jj_dir, 'rev-list', '--ancestry-path', '--reverse', commit . '..' . state.blame_reverse_end])[0], 0, '')
   endif
   let lnum = +matchstr(line, ' \zs\d\+\ze \%((\| *\d\+)\)')
   let path = matchstr(line, '^\^\=[?*]*\x* \+\%(\d\+ \+\d\+ \+\)\=\zs.\{-\}\ze\s*\d\+ \%((\| *\d\+)\)')
@@ -6925,7 +6767,7 @@ function! s:BlameLeave() abort
   if bufwinnr == 0
     let bufwinnr = bufwinnr(get(state, 'origin_bufnr', -1))
   endif
-  if get(state, 'filetype', '') ==# 'fugitiveblame' && bufwinnr > 0
+  if get(state, 'filetype', '') ==# 'fujjitiveblame' && bufwinnr > 0
     let bufnr = bufnr('')
     exe bufwinnr . 'wincmd w'
     return bufnr . 'bdelete'
@@ -6944,7 +6786,7 @@ function! s:BlameQuit() abort
   endif
 endfunction
 
-function! fugitive#BlameComplete(A, L, P) abort
+function! fujjitive#BlameComplete(A, L, P) abort
   return s:CompleteSub('blame', a:A, a:L, a:P)
 endfunction
 
@@ -7006,12 +6848,12 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
         continue
       endif
       try
-        let dcf = s:DirCommitFile(fugitive#Find(arg, dir))
+        let dcf = s:DirCommitFile(fujjitive#Find(arg, dir))
         if len(dcf[1]) && empty(dcf[2])
           call add(commits, remove(flags, i))
           continue
         endif
-      catch /^fugitive:/
+      catch /^fujjitive:/
       endtry
       call add(files, remove(flags, i))
       continue
@@ -7031,7 +6873,7 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
     endif
     call extend(cmd, ranges)
     let tempname = tempname()
-    let temp = tempname . (raw ? '' : '.fugitiveblame')
+    let temp = tempname . (raw ? '' : '.fujjitiveblame')
     if len(commits)
       let cmd += commits
     elseif empty(files) && len(matchstr(s:DirCommitFile(@%)[1], '^\x\x\+$'))
@@ -7045,9 +6887,9 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
         exe 'checktime ' . bufnr('')
       endif
     else
-      call fugitive#Autowrite()
+      call fujjitive#Autowrite()
     endif
-    let basecmd = [{'git': a:options.git}, dir, '--literal-pathspecs'] + cmd + ['--'] + (len(files) ? files : [file])
+    let basecmd = [{'git': a:options.git}, dir, ''] + cmd + ['--'] + (len(files) ? files : [file])
     let [err, exec_error] = s:StdoutToFile(temp, basecmd)
     if exists('delete_in')
       call delete(tempname . '.in')
@@ -7078,9 +6920,9 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
             \ 'git': a:options.git,
             \ 'flags': a:options.flags,
             \ 'args': [a:options.subcommand] + a:options.subcommand_args,
-            \ 'git_dir': s:GitDir(a:options),
+            \ 'jj_dir': s:JJDir(a:options),
             \ 'cwd': s:UserCommandCwd(a:options),
-            \ 'filetype': (raw ? 'git' : 'fugitiveblame'),
+            \ 'filetype': (raw ? 'git' : 'fujjitiveblame'),
             \ 'blame_options': a:options,
             \ 'blame_flags': flags,
             \ 'blame_file': file}
@@ -7104,7 +6946,7 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
         let temp_state.file = temp
         call s:RunSave(temp_state)
         if len(ranges + commits + files) || raw
-          let reload = '|call fugitive#DidChange(fugitive#Result(' . string(temp_state.file) . '))'
+          let reload = '|call fujjitive#DidChange(fujjitive#Result(' . string(temp_state.file) . '))'
           let mods = s:Mods(a:mods)
           if a:count != 0
             exe 'silent keepalt' mods get(a:options, 'curwin') ? 'edit' : 'split' s:fnameescape(temp)
@@ -7174,7 +7016,7 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
       endif
     endtry
     return ''
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
 endfunction
@@ -7187,16 +7029,16 @@ function! s:BlameCommit(cmd, ...) abort
   let [commit, path, lnum] = s:BlameCommitFileLnum(line, state)
   if empty(commit) && len(path) && has_key(state, 'blame_reverse_end')
     let path = (len(state.blame_reverse_end) ? state.blame_reverse_end . ':' : ':(top)') . path
-    return fugitive#Open(mods . a:cmd, 0, '', '+' . lnum . ' ' . s:fnameescape(path), ['+' . lnum, path])
+    return fujjitive#Open(mods . a:cmd, 0, '', '+' . lnum . ' ' . s:fnameescape(path), ['+' . lnum, path])
   endif
   if commit =~# '^0*$'
-    return 'echoerr ' . string('fugitive: no commit')
+    return 'echoerr ' . string('fujjitive: no commit')
   endif
   if line =~# '^\^' && !has_key(state, 'blame_reverse_end')
     let path = commit . ':' . path
-    return fugitive#Open(mods . a:cmd, 0, '', '+' . lnum . ' ' . s:fnameescape(path), ['+' . lnum, path])
+    return fujjitive#Open(mods . a:cmd, 0, '', '+' . lnum . ' ' . s:fnameescape(path), ['+' . lnum, path])
   endif
-  let cmd = fugitive#Open(mods . a:cmd, 0, '', commit, [commit])
+  let cmd = fujjitive#Open(mods . a:cmd, 0, '', commit, [commit])
   if cmd =~# '^echoerr'
     return cmd
   endif
@@ -7238,7 +7080,7 @@ function! s:BlameJump(suffix, ...) abort
   let suffix = a:suffix
   let [commit, path, lnum] = s:BlameCommitFileLnum()
   if empty(path)
-    return 'echoerr ' . string('fugitive: could not determine filename for blame')
+    return 'echoerr ' . string('fujjitive: could not determine filename for blame')
   endif
   if commit =~# '^0*$'
     let commit = '@'
@@ -7279,24 +7121,24 @@ function! s:BlameJump(suffix, ...) abort
   endif
   keepjumps syncbind
   redraw
-  echo ':Git blame' s:fnameescape(blame_args)
+  echo ':JJ blame' s:fnameescape(blame_args)
   return ''
 endfunction
 
 let s:hash_colors = {}
 
-function! fugitive#BlameSyntax() abort
+function! fujjitive#BlameSyntax() abort
   let conceal = has('conceal') ? ' conceal' : ''
   let flags = get(s:TempState(), 'blame_flags', [])
   syn spell notoplevel
   syn match FugitiveblameBlank                      "^\s\+\s\@=" nextgroup=FugitiveblameAnnotation,FugitiveblameScoreDebug,FugitiveblameOriginalFile,FugitiveblameOriginalLineNumber skipwhite
   syn match FugitiveblameHash       "\%(^\^\=[?*]*\)\@<=\<\x\{7,\}\>" nextgroup=FugitiveblameAnnotation,FugitiveblameScoreDebug,FugitiveblameOriginalLineNumber,FugitiveblameOriginalFile skipwhite
-  if s:HasOpt(flags, '-b') || FugitiveConfigGet('blame.blankBoundary') =~# '^1$\|^true$'
+  if s:HasOpt(flags, '-b') || FujjitiveConfigGet('blame.blankBoundary') =~# '^1$\|^true$'
     syn match FugitiveblameBoundaryIgnore "^\^[*?]*\x\{7,\}\>" nextgroup=FugitiveblameAnnotation,FugitiveblameScoreDebug,FugitiveblameOriginalLineNumber,FugitiveblameOriginalFile skipwhite
   else
     syn match FugitiveblameBoundary "^\^"
   endif
-  syn match FugitiveblameScoreDebug        " *\d\+\s\+\d\+\s\@=" nextgroup=FugitiveblameAnnotation,FugitiveblameOriginalLineNumber,fugitiveblameOriginalFile contained skipwhite
+  syn match FugitiveblameScoreDebug        " *\d\+\s\+\d\+\s\@=" nextgroup=FugitiveblameAnnotation,FugitiveblameOriginalLineNumber,fujjitiveblameOriginalFile contained skipwhite
   syn region FugitiveblameAnnotation matchgroup=FugitiveblameDelimiter start="(" end="\%(\s\d\+\)\@<=)" contained keepend oneline
   syn match FugitiveblameTime "\<[0-9:/+-][0-9:/+ -]*[0-9:/+-]\%(\s\+\d\+)\)\@=" contained containedin=FugitiveblameAnnotation
   exec 'syn match FugitiveblameLineNumber         "\s[[:digit:][:space:]]\{0,' . (len(line('$'))-1). '\}\d)\@=" contained containedin=FugitiveblameAnnotation' conceal
@@ -7322,7 +7164,7 @@ function! fugitive#BlameSyntax() abort
   endif
   let seen = {}
   for x in split('01234567890abcdef', '\zs')
-    exe 'syn match FugitiveblameHashGroup'.x '"\%(^\^\=[*?]*\)\@<='.x.'\x\{5,\}\>" nextgroup=FugitiveblameAnnotation,FugitiveblameOriginalLineNumber,fugitiveblameOriginalFile skipwhite'
+    exe 'syn match FugitiveblameHashGroup'.x '"\%(^\^\=[*?]*\)\@<='.x.'\x\{5,\}\>" nextgroup=FugitiveblameAnnotation,FugitiveblameOriginalLineNumber,fujjitiveblameOriginalFile skipwhite'
   endfor
   for lnum in range(1, line('$'))
     let orig_hash = matchstr(getline(lnum), '^\^\=[*?]*\zs\x\{6\}')
@@ -7387,10 +7229,10 @@ function! s:BlameMaps(is_ftplugin) abort
   call s:Map('n', 'D',    ":<C-u>exe 'vertical resize '.(<SID>linechars('.\\{-\\}\\ze\\d\\ze\\s\\+\\d\\+)')+1-v:count)<CR>", '<silent>', ft)
 endfunction
 
-function! fugitive#BlameFileType() abort
+function! fujjitive#BlameFileType() abort
   setlocal nomodeline
   setlocal foldmethod=manual
-  if len(s:GitDir())
+  if len(s:JJDir())
     let &l:keywordprg = s:Keywordprg()
   endif
   let b:undo_ftplugin = 'setl keywordprg= foldmethod<'
@@ -7419,7 +7261,7 @@ function! s:BlameCursorSync(bufnr, line) abort
   endif
 endfunction
 
-augroup fugitive_blame
+augroup fujjitive_blame
   autocmd!
   autocmd ColorScheme,GUIEnter * call s:BlameRehighlight()
   autocmd BufWinLeave * execute getwinvar(+bufwinnr(+expand('<abuf>')), 'fugitive_leave')
@@ -7464,7 +7306,7 @@ function! s:BrowserOpen(url, mods, echo_copy) abort
   endif
 endfunction
 
-function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abort
+function! fujjitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abort
   exe s:VersionCheck()
   let dir = s:Dir()
   try
@@ -7477,11 +7319,11 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
     if arg ==# '-'
       let remote = ''
       let rev = ''
-      let result = fugitive#Result()
+      let result = fujjitive#Result()
       if filereadable(get(result, 'file', ''))
         let rev = s:fnameescape(result.file)
       else
-        return 'echoerr ' . string('fugitive: could not find prior :Git invocation')
+        return 'echoerr ' . string('fujjitive: could not find prior :JJ invocation')
       endif
     elseif !exists('l:remote')
       let remote = matchstr(arg, '\\\@<!\%(\\\\\)*[!@]\zs\%('.validremote.'\)$')
@@ -7490,7 +7332,7 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
       let rev = arg
     endif
     let expanded = s:Expand(rev)
-    if expanded =~? '^\a\a\+:[\/][\/]' && expanded !~? '^fugitive:'
+    if expanded =~? '^\a\a\+:[\/][\/]' && expanded !~? '^fujjitive:'
       return s:BrowserOpen(s:Slash(expanded), a:mods, a:bang)
     endif
     if !exists('l:result')
@@ -7503,11 +7345,11 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
           return s:BrowserOpen(rev, a:mods, a:bang)
         endif
       endfor
-      return 'echoerr ' . string('fugitive: no URL found in output of :Git')
+      return 'echoerr ' . string('fujjitive: no URL found in output of :Git')
     endif
     if empty(remote) && expanded =~# '^[^-./:^~][^:^~]*$' && !empty(dir)
-      let config = fugitive#Config(dir)
-      if !empty(FugitiveConfigGet('remote.' . expanded . '.url', config))
+      let config = fujjitive#Config(dir)
+      if !empty(FujjitiveConfigGet('remote.' . expanded . '.url', config))
         let remote = expanded
         let expanded = ''
       endif
@@ -7516,7 +7358,7 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
       let bufname = &buftype =~# '^\%(nofile\|terminal\)$' ? '' : s:BufName('%')
       let expanded = s:DirRev(bufname)[1]
       if empty(expanded)
-        let expanded = fugitive#Path(bufname, ':(top)', dir)
+        let expanded = fujjitive#Path(bufname, ':(top)', dir)
       endif
       if a:count > 0 && has_key(result, 'origin_bufnr') && a:range != 2
         let blame = s:BlameCommitFileLnum(getline(a:count))
@@ -7529,7 +7371,7 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
     let commit = ''
     let ref = ''
     let forbid_ref_as_commit = 0
-    if full =~# '^fugitive:'
+    if full =~# '^fujjitive:'
       let [dir, commit, path] = s:DirCommitFile(full)
       if commit =~# '^\d\=$'
         let commit = ''
@@ -7547,40 +7389,40 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
       endif
       let path = path[1:-1]
     elseif !empty(s:Tree(dir))
-      let relevant_dir = FugitiveExtractGitDir(full)
+      let relevant_dir = FujjitiveExtractJJDir(full)
       if !empty(relevant_dir)
         let dir = relevant_dir
       endif
-      let path = fugitive#Path(full, '/', dir)[1:-1]
+      let path = fujjitive#Path(full, '/', dir)[1:-1]
       if empty(path) || isdirectory(full)
         let type = 'tree'
       else
         let type = 'blob'
       endif
     else
-      let path = '.git/' . full[strlen(dir)+1:-1]
+      let path = '.jj/' . full[strlen(dir)+1:-1]
       let type = ''
     endif
     exe s:DirCheck(dir)
-    if path =~# '^\.git/'
-      let ref = matchstr(path, '^.git/\zs\%(refs/[^/]\+/[^/].*\|\w*HEAD\)$')
+    if path =~# '^\.jj/'
+      let ref = matchstr(path, '^.jj/\zs\%(refs/[^/]\+/[^/].*\|\w*HEAD\)$')
       let type = empty(ref) ? 'root': 'ref'
       let path = ''
     endif
     if empty(ref) || ref ==# 'HEAD' || ref ==# '@'
-      let ref = fugitive#Head(-1, dir)
+      let ref = fujjitive#Head(-1, dir)
     endif
     if ref =~# '^\x\{40,\}$'
       let ref = ''
     elseif !empty(ref) && ref !~# '^refs/'
-      let ref = FugitiveExecute(['rev-parse', '--symbolic-full-name', ref], dir).stdout[0]
+      let ref = FujjitiveExecute(['rev-parse', '--symbolic-full-name', ref], dir).stdout[0]
       if ref !~# '^refs/'
         let ref = ''
       endif
     endif
 
     if !exists('l:config') || s:Dir(config) !=# dir
-      let config = fugitive#Config(dir)
+      let config = fujjitive#Config(dir)
     endif
     let merge = ''
     if !empty(remote) && ref =~# '^refs/remotes/[^/]\+/[^/]\|^refs/heads/[^/]'
@@ -7592,13 +7434,13 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
       let ref = 'refs/heads/' . merge
     elseif ref =~# '^refs/heads/[^/]'
       let merge = strpart(ref, 11)
-      let r = FugitiveConfigGet('branch.' . merge . '.remote', config)
-      let m = FugitiveConfigGet('branch.' . merge . '.merge', config)[11:-1]
+      let r = FujjitiveConfigGet('branch.' . merge . '.remote', config)
+      let m = FujjitiveConfigGet('branch.' . merge . '.merge', config)[11:-1]
       if r ==# '.' && !empty(m)
-        let r2 = FugitiveConfigGet('branch.'.m.'.remote', config)
+        let r2 = FujjitiveConfigGet('branch.'.m.'.remote', config)
         if r2 !~# '^\.\=$'
           let r = r2
-          let m = FugitiveConfigGet('branch.'.m.'.merge', config)[11:-1]
+          let m = FujjitiveConfigGet('branch.'.m.'.merge', config)[11:-1]
         endif
       endif
       if r !~# '^\.\=$'
@@ -7606,8 +7448,8 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
       endif
       if !empty(remote)
         let remote_ref = 'refs/remotes/' . remote . '/' . merge
-        if FugitiveConfigGet('push.default', config) ==# 'upstream' ||
-              \ !filereadable(FugitiveFind('.git/' . remote_ref, dir)) && empty(s:ChompDefault('', ['rev-parse', '--verify', remote_ref, '--'], dir))
+        if FujjitiveConfigGet('push.default', config) ==# 'upstream' ||
+              \ !filereadable(FujjitiveFind('.jj/' . remote_ref, dir)) && empty(s:ChompDefault('', ['rev-parse', '--verify', remote_ref, '--'], dir))
           let merge = m
           let ref = 'refs/heads/' . merge
         endif
@@ -7658,27 +7500,27 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
               let line1 = +matchstr(blame[0], blame_regex)
               let line2 = +matchstr(blame[-1], blame_regex)
             else
-              throw "fugitive: can't browse to unpushed change"
+              throw "fujjitive: can't browse to unpushed change"
             endif
           endif
         endif
       endif
       if empty(commit)
-        let commit = fugitive#RevParse(empty(ref) ? 'HEAD' : ref, dir)
+        let commit = fujjitive#RevParse(empty(ref) ? 'HEAD' : ref, dir)
       endif
     endif
 
     if remote =~# ':'
       let remote_url = remote
     else
-      let remote_url = fugitive#RemoteUrl(remote, config)
+      let remote_url = fujjitive#RemoteUrl(remote, config)
     endif
     let raw = empty(remote_url) ? remote : remote_url
-    let git_dir = s:GitDir(dir)
+    let git_dir = s:JJDir(dir)
 
     let opts = {
-          \ 'git_dir': git_dir,
-          \ 'repo': {'git_dir': git_dir},
+          \ 'jj_dir': git_dir,
+          \ 'repo': {'jj_dir': git_dir},
           \ 'remote': raw,
           \ 'remote_name': remote,
           \ 'commit': s:UrlEncode(commit),
@@ -7689,10 +7531,10 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
 
     if empty(path)
       if type ==# 'ref' && ref =~# '^refs/'
-        let opts.path = '.git/' . s:UrlEncode(ref)
+        let opts.path = '.jj/' . s:UrlEncode(ref)
         let opts.type = ''
       elseif type ==# 'root'
-        let opts.path ='.git/index'
+        let opts.path ='.jj/index'
         let opts.type = ''
       endif
     elseif type ==# 'tree' && !empty(path)
@@ -7707,11 +7549,11 @@ function! fugitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abor
     endfor
 
     if !empty(remote_url)
-      return 'echoerr ' . string("fugitive: no GBrowse handler installed for '".remote_url."'")
+      return 'echoerr ' . string("fujjitive: no GBrowse handler installed for '".remote_url."'")
     else
-      return 'echoerr ' . string("fugitive: could not find remote named '".remote."'")
+      return 'echoerr ' . string("fujjitive: could not find remote named '".remote."'")
     endif
-  catch /^fugitive:/
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
 endfunction
@@ -7723,7 +7565,7 @@ function! s:RemoteRefToLocalRef(repo, remote_url, ref_path) abort
     let rev = substitute(ref_path, '/', ':', '')
   elseif ref_path =~# '^[^:/^~]\+'
     let first_component = matchstr(ref_path, '^[^:/^~]\+')
-    let lines = fugitive#Execute(['ls-remote', a:remote_url, first_component, first_component . '/*'], a:repo).stdout[0:-2]
+    let lines = fujjitive#Execute(['ls-remote', a:remote_url, first_component, first_component . '/*'], a:repo).stdout[0:-2]
     for line in lines
       let full = matchstr(line, "\t\\zs.*")
       for candidate in [full, matchstr(full, '^refs/\w\+/\zs.*')]
@@ -7737,12 +7579,12 @@ function! s:RemoteRefToLocalRef(repo, remote_url, ref_path) abort
     return ''
   endif
   let commitish = matchstr(rev, '^[^:^~]*')
-  let rev_parse = fugitive#Execute(['rev-parse', '--verify', commitish], a:repo)
+  let rev_parse = fujjitive#Execute(['rev-parse', '--verify', commitish], a:repo)
   if rev_parse.exit_status
-    if fugitive#Execute(['fetch', remote_url, commitish], a:repo).exit_status
+    if fujjitive#Execute(['fetch', remote_url, commitish], a:repo).exit_status
       return ''
     endif
-    let rev_parse = fugitive#Execute(['rev-parse', '--verify', commitish], a:repo)
+    let rev_parse = fujjitive#Execute(['rev-parse', '--verify', commitish], a:repo)
   endif
   if rev_parse.exit_status
     return ''
@@ -7750,25 +7592,25 @@ function! s:RemoteRefToLocalRef(repo, remote_url, ref_path) abort
   return rev_parse.stdout[0] . matchstr(rev, ':.*')
 endfunction
 
-function! fugitive#ResolveUrl(target, ...) abort
+function! fujjitive#ResolveUrl(target, ...) abort
   let repo = call('s:Dir', a:000)
   let origins = get(g:, 'fugitive_url_origins', {})
   let prefix = substitute(s:Slash(a:target), '#.*', '', '')
   while prefix =~# '://'
-    let extracted = FugitiveExtractGitDir(expand(get(origins, prefix, '')))
+    let extracted = FujjitiveExtractJJDir(expand(get(origins, prefix, '')))
     if !empty(extracted)
       let repo = s:Dir(extracted)
       break
     endif
     let prefix = matchstr(prefix, '.*\ze/')
   endwhile
-  let git_dir = s:GitDir(repo)
-  for remote_name in keys(FugitiveConfigGetRegexp('^remote\.\zs.*\ze\.url$', repo))
-    let remote_url = fugitive#RemoteUrl(remote_name, repo)
+  let git_dir = s:JJDir(repo)
+  for remote_name in keys(FujjitiveConfigGetRegexp('^remote\.\zs.*\ze\.url$', repo))
+    let remote_url = fujjitive#RemoteUrl(remote_name, repo)
     for [no_anchor; variant] in [[1, 'commit'], [1, 'tree'], [1, 'tree', 1], [1, 'blob', 1], [0, 'blob', 1, '1`line1`', '1`line1`'], [0, 'blob', 1, '1`line1`', '2`line2`']]
       let handler_opts = {
-            \ 'git_dir': git_dir,
-            \ 'repo': {'git_dir': git_dir},
+            \ 'jj_dir': git_dir,
+            \ 'repo': {'jj_dir': git_dir},
             \ 'remote': remote_url,
             \ 'remote_name': remote_name,
             \ 'commit': '1`commit`',
@@ -7807,8 +7649,8 @@ function! fugitive#ResolveUrl(target, ...) abort
       else
         continue
       endif
-      let rev = s:RemoteRefToLocalRef(repo, remote_url, fugitive#UrlDecode(ref_path))
-      return [fugitive#Find(rev, repo), empty(rev) ? 0 : +get(kvs, 'line1')]
+      let rev = s:RemoteRefToLocalRef(repo, remote_url, fujjitive#UrlDecode(ref_path))
+      return [fujjitive#Find(rev, repo), empty(rev) ? 0 : +get(kvs, 'line1')]
     endfor
   endfor
   return ['', 0]
@@ -7816,7 +7658,7 @@ endfunction
 
 function! s:ResolveUrl(target, ...) abort
   try
-    let [url, lnum] = call('fugitive#ResolveUrl', [a:target] + a:000)
+    let [url, lnum] = call('fujjitive#ResolveUrl', [a:target] + a:000)
     if !empty(url)
       return [url, lnum]
     endif
@@ -7830,10 +7672,10 @@ endfunction
 let s:ref_header = '\%(Merge\|Rebase\|Upstream\|Pull\|Push\)'
 
 nnoremap <SID>: :<C-U><C-R>=v:count ? v:count : ''<CR>
-function! fugitive#MapCfile(...) abort
-  exe 'cnoremap <buffer> <expr> <Plug><cfile>' (a:0 ? a:1 : 'fugitive#Cfile()')
+function! fujjitive#MapCfile(...) abort
+  exe 'cnoremap <buffer> <expr> <Plug><cfile>' (a:0 ? a:1 : 'fujjitive#Cfile()')
   let b:undo_ftplugin = get(b:, 'undo_ftplugin', 'exe') . '|sil! exe "cunmap <buffer> <Plug><cfile>"'
-  if !exists('g:fugitive_no_maps')
+  if !exists('g:fujjitive_no_maps')
     call s:Map('n', 'gf',          '<SID>:find <Plug><cfile><CR>', '<silent><unique>', 1)
     call s:Map('n', '<C-W>f',     '<SID>:sfind <Plug><cfile><CR>', '<silent><unique>', 1)
     call s:Map('n', '<C-W><C-F>', '<SID>:sfind <Plug><cfile><CR>', '<silent><unique>', 1)
@@ -7848,7 +7690,7 @@ function! s:ContainingCommit() abort
 endfunction
 
 function! s:SquashArgument(...) abort
-  if &filetype == 'fugitive'
+  if &filetype == 'fujjitive'
     let commit = matchstr(getline('.'), '^\%(\%(\x\x\x\)\@!\l\+\s\+\)\=\zs[0-9a-f]\{4,\}\ze \|^' . s:ref_header . ': \zs\S\+')
   elseif has_key(s:temp_files, s:cpath(expand('%:p')))
     let commit = matchstr(getline('.'), '\S\@<!\x\{4,\}\S\@!')
@@ -7887,7 +7729,7 @@ function! s:ParseDiffHeader(str) abort
   if empty(list)
     let list = matchlist(a:str, '\Cdiff --git \("\=[^/].*\|/dev/null\) \("\=[^/].*\|/dev/null\)$')
   endif
-  return [fugitive#Unquote(get(list, 1, '')), fugitive#Unquote(get(list, 2, ''))]
+  return [fujjitive#Unquote(get(list, 1, '')), fujjitive#Unquote(get(list, 2, ''))]
 endfunction
 
 function! s:HunkPosition(lnum) abort
@@ -7923,62 +7765,62 @@ function! s:MapGitOps(is_ftplugin) abort
   if &modifiable
     return ''
   endif
-  exe s:Map('n', 'c<Space>', ':Git commit<Space>', '', ft)
-  exe s:Map('n', 'c<CR>', ':Git commit<CR>', '', ft)
+  exe s:Map('n', 'c<Space>', ':JJ commit<Space>', '', ft)
+  exe s:Map('n', 'c<CR>', ':JJ commit<CR>', '', ft)
   exe s:Map('n', 'cv<Space>', ':tab Git commit -v<Space>', '', ft)
   exe s:Map('n', 'cv<CR>', ':tab Git commit -v<CR>', '', ft)
-  exe s:Map('n', 'ca', ':<C-U>Git commit --amend<CR>', '<silent>', ft)
-  exe s:Map('n', 'cc', ':<C-U>Git commit<CR>', '<silent>', ft)
-  exe s:Map('n', 'ce', ':<C-U>Git commit --amend --no-edit<CR>', '<silent>', ft)
-  exe s:Map('n', 'cw', ':<C-U>Git commit --amend --only<CR>', '<silent>', ft)
+  exe s:Map('n', 'ca', ':<C-U>JJ describe<CR>', '<silent>', ft)
+  exe s:Map('n', 'cc', ':<C-U>JJ commit<CR>', '<silent>', ft)
+  exe s:Map('n', 'ce', ':<C-U>JJ squash<CR>', '<silent>', ft)
+  exe s:Map('n', 'cw', ':<C-U>JJ describe<CR>', '<silent>', ft)
   exe s:Map('n', 'cW', ':<C-U>Git commit --fixup=reword:<C-R>=<SID>SquashArgument()<CR>', '', ft)
-  exe s:Map('n', 'cva', ':<C-U>tab Git commit -v --amend<CR>', '<silent>', ft)
-  exe s:Map('n', 'cvc', ':<C-U>tab Git commit -v<CR>', '<silent>', ft)
-  exe s:Map('n', 'cRa', ':<C-U>Git commit --reset-author --amend<CR>', '<silent>', ft)
-  exe s:Map('n', 'cRe', ':<C-U>Git commit --reset-author --amend --no-edit<CR>', '<silent>', ft)
-  exe s:Map('n', 'cRw', ':<C-U>Git commit --reset-author --amend --only<CR>', '<silent>', ft)
+  exe s:Map('n', 'cva', ':<C-U>tab JJ describe<CR>', '<silent>', ft)
+  exe s:Map('n', 'cvc', ':<C-U>tab JJ describe<CR>', '<silent>', ft)
+  exe s:Map('n', 'cRa', ':<C-U>JJ describe<CR>', '<silent>', ft)
+  exe s:Map('n', 'cRe', ':<C-U>JJ squash<CR>', '<silent>', ft)
+  exe s:Map('n', 'cRw', ':<C-U>JJ describe<CR>', '<silent>', ft)
   exe s:Map('n', 'cf', ':<C-U>Git commit --fixup=<C-R>=<SID>SquashArgument()<CR>', '', ft)
   exe s:Map('n', 'cF', ':<C-U><Bar>Git -c sequence.editor=true rebase --interactive --autosquash<C-R>=<SID>RebaseArgument()<CR><Home>Git commit --fixup=<C-R>=<SID>SquashArgument()<CR>', '', ft)
   exe s:Map('n', 'cs', ':<C-U>Git commit --no-edit --squash=<C-R>=<SID>SquashArgument()<CR>', '', ft)
   exe s:Map('n', 'cS', ':<C-U><Bar>Git -c sequence.editor=true rebase --interactive --autosquash<C-R>=<SID>RebaseArgument()<CR><Home>Git commit --no-edit --squash=<C-R>=<SID>SquashArgument()<CR>', '', ft)
   exe s:Map('n', 'cn', ':<C-U>Git commit --edit --squash=<C-R>=<SID>SquashArgument()<CR>', '', ft)
   exe s:Map('n', 'cA', ':<C-U>echoerr "Use cn"<CR>', '<silent><unique>', ft)
-  exe s:Map('n', 'c?', ':<C-U>help fugitive_c<CR>', '<silent>', ft)
+  exe s:Map('n', 'c?', ':<C-U>help fujjitive_c<CR>', '<silent>', ft)
 
-  exe s:Map('n', 'cr<Space>', ':Git revert<Space>', '', ft)
-  exe s:Map('n', 'cr<CR>', ':Git revert<CR>', '', ft)
+  exe s:Map('n', 'cr<Space>', ':JJ backout ', '', ft)
+  exe s:Map('n', 'cr<CR>', ':JJ backout<CR>', '', ft)
   exe s:Map('n', 'crc', ':<C-U>Git revert <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
   exe s:Map('n', 'crn', ':<C-U>Git revert --no-commit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'cr?', ':<C-U>help fugitive_cr<CR>', '<silent>', ft)
+  exe s:Map('n', 'cr?', ':<C-U>help fujjitive_cr<CR>', '<silent>', ft)
 
-  exe s:Map('n', 'cm<Space>', ':Git merge<Space>', '', ft)
-  exe s:Map('n', 'cm<CR>', ':Git merge<CR>', '', ft)
-  exe s:Map('n', 'cmt', ':Git mergetool', '', ft)
-  exe s:Map('n', 'cm?', ':<C-U>help fugitive_cm<CR>', '<silent>', ft)
+  exe s:Map('n', 'cm<Space>', ':JJ new ', '', ft)
+  exe s:Map('n', 'cm<CR>', ':JJ new<CR>', '', ft)
+  exe s:Map('n', 'cmt', ':JJ resolve', '', ft)
+  exe s:Map('n', 'cm?', ':<C-U>help fujjitive_cm<CR>', '<silent>', ft)
 
-  exe s:Map('n', 'cz<Space>', ':Git stash<Space>', '', ft)
-  exe s:Map('n', 'cz<CR>', ':Git stash<CR>', '', ft)
+  exe s:Map('n', 'cz<Space>', ':JJ new ', '', ft)
+  exe s:Map('n', 'cz<CR>', ':JJ new<CR>', '', ft)
   exe s:Map('n', 'cza', ':<C-U>Git stash apply --quiet --index stash@{<C-R>=v:count<CR>}<CR>', '', ft)
   exe s:Map('n', 'czA', ':<C-U>Git stash apply --quiet stash@{<C-R>=v:count<CR>}<CR>', '', ft)
   exe s:Map('n', 'czp', ':<C-U>Git stash pop --quiet --index stash@{<C-R>=v:count<CR>}<CR>', '', ft)
   exe s:Map('n', 'czP', ':<C-U>Git stash pop --quiet stash@{<C-R>=v:count<CR>}<CR>', '', ft)
   exe s:Map('n', 'czs', ':<C-U>Git stash push --staged<CR>', '', ft)
-  exe s:Map('n', 'czv', ':<C-U>exe "Gedit" fugitive#RevParse("stash@{" . v:count . "}")<CR>', '<silent>', ft)
+  exe s:Map('n', 'czv', ':<C-U>exe "Gedit" fujjitive#RevParse("stash@{" . v:count . "}")<CR>', '<silent>', ft)
   exe s:Map('n', 'czw', ':<C-U>Git stash push --keep-index<C-R>=v:count > 1 ? " --all" : v:count ? " --include-untracked" : ""<CR><CR>', '', ft)
   exe s:Map('n', 'czz', ':<C-U>Git stash push <C-R>=v:count > 1 ? " --all" : v:count ? " --include-untracked" : ""<CR><CR>', '', ft)
-  exe s:Map('n', 'cz?', ':<C-U>help fugitive_cz<CR>', '<silent>', ft)
+  exe s:Map('n', 'cz?', ':<C-U>help fujjitive_cz<CR>', '<silent>', ft)
 
-  exe s:Map('n', 'co<Space>', ':Git checkout<Space>', '', ft)
-  exe s:Map('n', 'co<CR>', ':Git checkout<CR>', '', ft)
+  exe s:Map('n', 'co<Space>', ':JJ edit ', '', ft)
+  exe s:Map('n', 'co<CR>', ':JJ edit<CR>', '', ft)
   exe s:Map('n', 'coo', ':<C-U>Git checkout <C-R>=substitute(<SID>SquashArgument(),"^$",get(<SID>TempState(),"filetype","") ==# "git" ? expand("<cfile>") : "","")<CR> --<CR>', '', ft)
-  exe s:Map('n', 'co?', ':<C-U>help fugitive_co<CR>', '<silent>', ft)
+  exe s:Map('n', 'co?', ':<C-U>help fujjitive_co<CR>', '<silent>', ft)
 
-  exe s:Map('n', 'cb<Space>', ':Git branch<Space>', '', ft)
-  exe s:Map('n', 'cb<CR>', ':Git branch<CR>', '', ft)
-  exe s:Map('n', 'cb?', ':<C-U>help fugitive_cb<CR>', '<silent>', ft)
+  exe s:Map('n', 'cb<Space>', ':JJ bookmark ', '', ft)
+  exe s:Map('n', 'cb<CR>', ':JJ bookmark list<CR>', '', ft)
+  exe s:Map('n', 'cb?', ':<C-U>help fujjitive_cb<CR>', '<silent>', ft)
 
-  exe s:Map('n', 'r<Space>', ':Git rebase<Space>', '', ft)
-  exe s:Map('n', 'r<CR>', ':Git rebase<CR>', '', ft)
+  exe s:Map('n', 'r<Space>', ':JJ rebase ', '', ft)
+  exe s:Map('n', 'r<CR>', ':JJ rebase<CR>', '', ft)
   exe s:Map('n', 'ri', ':<C-U>Git rebase --interactive<C-R>=<SID>RebaseArgument()<CR><CR>', '<silent>', ft)
   exe s:Map('n', 'rf', ':<C-U>Git -c sequence.editor=true rebase --interactive --autosquash<C-R>=<SID>RebaseArgument()<CR><CR>', '<silent>', ft)
   exe s:Map('n', 'ru', ':<C-U>Git rebase --interactive @{upstream}<CR>', '<silent>', ft)
@@ -7992,31 +7834,31 @@ function! s:MapGitOps(is_ftplugin) abort
   exe s:Map('n', 'rs', ':<C-U>Git rebase --skip<CR>', '<silent>', ft)
   exe s:Map('n', 're', ':<C-U>Git rebase --edit-todo<CR>', '<silent>', ft)
   exe s:Map('n', 'ra', ':<C-U>Git rebase --abort<CR>', '<silent>', ft)
-  exe s:Map('n', 'r?', ':<C-U>help fugitive_r<CR>', '<silent>', ft)
+  exe s:Map('n', 'r?', ':<C-U>help fujjitive_r<CR>', '<silent>', ft)
 endfunction
 
-function! fugitive#MapJumps(...) abort
+function! fujjitive#MapJumps(...) abort
   if !&modifiable
-    if get(b:, 'fugitive_type', '') ==# 'blob'
+    if get(b:, 'fujjitive_type', '') ==# 'blob'
       let blame_tail = '<C-R>=v:count ? " --reverse" : ""<CR><CR>'
-      exe s:Map('n', '<2-LeftMouse>', ':<C-U>0,1Git ++curwin blame' . blame_tail, '<silent>')
-      exe s:Map('n', '<CR>', ':<C-U>0,1Git ++curwin blame' . blame_tail, '<silent>')
-      exe s:Map('n', 'o',    ':<C-U>0,1Git blame' . blame_tail, '<silent>')
-      exe s:Map('n', 'p',    ':<C-U>0,1Git! blame' . blame_tail, '<silent>')
+      exe s:Map('n', '<2-LeftMouse>', ':<C-U>0,1JJ ++curwin file annotate' . blame_tail, '<silent>')
+      exe s:Map('n', '<CR>', ':<C-U>0,1JJ ++curwin file annotate' . blame_tail, '<silent>')
+      exe s:Map('n', 'o',    ':<C-U>0,1JJ file annotate' . blame_tail, '<silent>')
+      exe s:Map('n', 'p',    ':<C-U>0,1JJ! file annotate' . blame_tail, '<silent>')
       if has('patch-7.4.1898')
-        exe s:Map('n', 'gO',   ':<C-U>vertical 0,1Git blame' . blame_tail, '<silent>')
-        exe s:Map('n', 'O',    ':<C-U>tab 0,1Git blame' . blame_tail, '<silent>')
+        exe s:Map('n', 'gO',   ':<C-U>vertical 0,1JJ file annotate' . blame_tail, '<silent>')
+        exe s:Map('n', 'O',    ':<C-U>tab 0,1JJ file annotate' . blame_tail, '<silent>')
       else
-        exe s:Map('n', 'gO',   ':<C-U>0,4Git blame' . blame_tail, '<silent>')
-        exe s:Map('n', 'O',    ':<C-U>0,5Git blame' . blame_tail, '<silent>')
+        exe s:Map('n', 'gO',   ':<C-U>0,4JJ file annotate' . blame_tail, '<silent>')
+        exe s:Map('n', 'O',    ':<C-U>0,5JJ file annotate' . blame_tail, '<silent>')
       endif
 
-      call s:Map('n', 'D', ":echoerr 'fugitive: D has been removed in favor of dd'<CR>", '<silent><unique>')
-      call s:Map('n', 'dd', ":<C-U>call fugitive#DiffClose()<Bar>keepalt Gdiffsplit!<CR>", '<silent>')
-      call s:Map('n', 'dh', ":<C-U>call fugitive#DiffClose()<Bar>keepalt Ghdiffsplit!<CR>", '<silent>')
-      call s:Map('n', 'ds', ":<C-U>call fugitive#DiffClose()<Bar>keepalt Ghdiffsplit!<CR>", '<silent>')
-      call s:Map('n', 'dv', ":<C-U>call fugitive#DiffClose()<Bar>keepalt Gvdiffsplit!<CR>", '<silent>')
-      call s:Map('n', 'd?', ":<C-U>help fugitive_d<CR>", '<silent>')
+      call s:Map('n', 'D', ":echoerr 'fujjitive: D has been removed in favor of dd'<CR>", '<silent><unique>')
+      call s:Map('n', 'dd', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Gdiffsplit!<CR>", '<silent>')
+      call s:Map('n', 'dh', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Ghdiffsplit!<CR>", '<silent>')
+      call s:Map('n', 'ds', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Ghdiffsplit!<CR>", '<silent>')
+      call s:Map('n', 'dv', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Gvdiffsplit!<CR>", '<silent>')
+      call s:Map('n', 'd?', ":<C-U>help fujjitive_d<CR>", '<silent>')
 
     else
       call s:Map('n', '<2-LeftMouse>', ':<C-U>exe <SID>GF("edit")<CR>', '<silent>')
@@ -8026,7 +7868,7 @@ function! fugitive#MapJumps(...) abort
       call s:Map('n', 'O',    ':<C-U>exe <SID>GF("tabedit")<CR>', '<silent>')
       call s:Map('n', 'p',    ':<C-U>exe <SID>GF("pedit")<CR>', '<silent>')
 
-      if !exists('g:fugitive_no_maps')
+      if !exists('g:fujjitive_no_maps')
         call s:Map('n', '<C-P>', ':exe <SID>PreviousItem(v:count1)<Bar>echohl WarningMsg<Bar>echo "CTRL-P is deprecated in favor of ("<Bar>echohl NONE<CR>', '<unique>')
         call s:Map('n', '<C-N>', ':exe <SID>NextItem(v:count1)<Bar>echohl WarningMsg<Bar>echo "CTRL-N is deprecated in favor of )"<Bar>echohl NONE<CR>', '<unique>')
       endif
@@ -8048,7 +7890,7 @@ function! fugitive#MapJumps(...) abort
       call s:Map('no', '#', '<SID>PatchSearchExpr(1)', '<expr>')
     endif
     call s:Map('n', 'S',    ':<C-U>echoerr "Use gO"<CR>', '<silent><unique>')
-    call s:Map('n', 'dq', ":<C-U>call fugitive#DiffClose()<CR>", '<silent>')
+    call s:Map('n', 'dq', ":<C-U>call fujjitive#DiffClose()<CR>", '<silent>')
     call s:Map('n', '-', ":<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>NavigateUp(v:count1))<Bar> if getline(1) =~# '^tree \x\{40,\}$' && empty(getline(2))<Bar>call search('^'.escape(expand('#:t'),'.*[]~\').'/\=$','wc')<Bar>endif<CR>", '<silent>')
     call s:Map('n', 'P',     ":<C-U>if !v:count<Bar>echoerr 'Use ~ (or provide a count)'<Bar>else<Bar>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit().'^'.v:count1.<SID>Relative(':'))<Bar>endif<CR>", '<silent>')
     call s:Map('n', '~',     ":<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit().'~'.v:count1.<SID>Relative(':'))<CR>", '<silent>')
@@ -8056,31 +7898,31 @@ function! fugitive#MapJumps(...) abort
     call s:Map('n', 'cp',    ":<C-U>echoerr 'Use gC'<CR>", '<silent><unique>')
     call s:Map('n', 'gC',    ":<C-U>exe 'Gpedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>", '<silent>')
     call s:Map('n', 'gc',    ":<C-U>exe 'Gpedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>", '<silent>')
-    call s:Map('n', 'gi',    ":<C-U>exe 'Gsplit' (v:count ? '.gitignore' : '.git/info/exclude')<CR>", '<silent>')
-    call s:Map('x', 'gi',    ":<C-U>exe 'Gsplit' (v:count ? '.gitignore' : '.git/info/exclude')<CR>", '<silent>')
+    call s:Map('n', 'gi',    ":<C-U>exe 'Gsplit' (v:count ? '.gitignore' : '.jj/info/exclude')<CR>", '<silent>')
+    call s:Map('x', 'gi',    ":<C-U>exe 'Gsplit' (v:count ? '.gitignore' : '.jj/info/exclude')<CR>", '<silent>')
 
-    call s:Map('n', '.',     ":<C-U> <C-R>=<SID>fnameescape(fugitive#Real(@%))<CR><Home>")
-    call s:Map('x', '.',     ":<C-U> <C-R>=<SID>fnameescape(fugitive#Real(@%))<CR><Home>")
+    call s:Map('n', '.',     ":<C-U> <C-R>=<SID>fnameescape(fujjitive#Real(@%))<CR><Home>")
+    call s:Map('x', '.',     ":<C-U> <C-R>=<SID>fnameescape(fujjitive#Real(@%))<CR><Home>")
     call s:Map('n', 'g?',    ":<C-U>help fugitive-maps<CR>", '<silent>')
     call s:Map('n', '<F1>',  ":<C-U>help fugitive-maps<CR>", '<silent>')
   endif
 
   let old_browsex = maparg('<Plug>NetrwBrowseX', 'n')
   let new_browsex = substitute(old_browsex, '\Cnetrw#CheckIfRemote(\%(netrw#GX()\)\=)', '0', 'g')
-  let new_browsex = substitute(new_browsex, 'netrw#GX()\|expand((exists("g:netrw_gx")? g:netrw_gx : ''<cfile>''))', 'fugitive#GX()', 'g')
+  let new_browsex = substitute(new_browsex, 'netrw#GX()\|expand((exists("g:netrw_gx")? g:netrw_gx : ''<cfile>''))', 'fujjitive#GX()', 'g')
   if new_browsex !=# old_browsex
     exe 'nnoremap <silent> <buffer> <Plug>NetrwBrowseX' new_browsex
   endif
   call s:MapGitOps(0)
 endfunction
 
-function! fugitive#GX() abort
+function! fujjitive#GX() abort
   try
-    let results = &filetype ==# 'fugitive' ? s:CfilePorcelain() : &filetype ==# 'git' ? s:cfile() : []
+    let results = &filetype ==# 'fujjitive' ? s:CfilePorcelain() : &filetype ==# 'git' ? s:cfile() : []
     if len(results) && len(results[0])
-      return FugitiveReal(s:Generate(results[0]))
+      return FujjitiveReal(s:Generate(results[0]))
     endif
-  catch /^fugitive:/
+  catch /^fujjitive:/
   endtry
   return expand(get(g:, 'netrw_gx', expand('<cfile>')))
 endfunction
@@ -8112,9 +7954,9 @@ function! s:CfilePorcelain(...) abort
   endif
 endfunction
 
-function! fugitive#PorcelainCfile() abort
-  let file = fugitive#Find(s:CfilePorcelain()[0])
-  return empty(file) ? fugitive#Cfile() : s:fnameescape(file)
+function! fujjitive#PorcelainCfile() abort
+  let file = fujjitive#Find(s:CfilePorcelain()[0])
+  return empty(file) ? fujjitive#Cfile() : s:fnameescape(file)
 endfunction
 
 function! s:StatusCfile(...) abort
@@ -8142,9 +7984,9 @@ function! s:StatusCfile(...) abort
   endif
 endfunction
 
-function! fugitive#MessageCfile() abort
-  let file = fugitive#Find(get(s:StatusCfile(), 0, ''))
-  return empty(file) ? fugitive#Cfile() : s:fnameescape(file)
+function! fujjitive#MessageCfile() abort
+  let file = fujjitive#Find(get(s:StatusCfile(), 0, ''))
+  return empty(file) ? fujjitive#Cfile() : s:fnameescape(file)
 endfunction
 
 function! s:BranchCfile(result) abort
@@ -8161,15 +8003,15 @@ function! s:cfile() abort
       return type(cfile) == type('') ? [cfile] : cfile
     endif
   endif
-  if empty(FugitiveGitDir())
+  if empty(FujjitiveJJDir())
     return []
   endif
   try
     let myhash = s:DirRev(@%)[1]
     if len(myhash)
       try
-        let myhash = fugitive#RevParse(myhash)
-      catch /^fugitive:/
+        let myhash = fujjitive#RevParse(myhash)
+      catch /^fujjitive:/
         let myhash = ''
       endtry
     endif
@@ -8224,7 +8066,7 @@ function! s:cfile() abort
 
       elseif getline('.') =~# '^tree \x\{40,\}$'
         let ref = matchstr(getline('.'),'\x\{40,\}')
-        if len(myhash) && fugitive#RevParse(myhash.':') ==# ref
+        if len(myhash) && fujjitive#RevParse(myhash.':') ==# ref
           let ref = myhash.':'
         endif
         return [ref]
@@ -8258,7 +8100,7 @@ function! s:cfile() abort
           let ref = s:ParseDiffHeader(getline(search(s:diff_header_pattern, 'bnW')))[0]
           let dcmds = [old_lnum, 'normal!zv']
         else
-          let ref = fugitive#Unquote(matchstr(getline('.'), '\C[+-]\{3\} \zs"\=[abciow12]/.*'))
+          let ref = fujjitive#Unquote(matchstr(getline('.'), '\C[+-]\{3\} \zs"\=[abciow12]/.*'))
         endif
 
       elseif getline('.') =~# '^rename from '
@@ -8326,8 +8168,8 @@ endfunction
 
 function! s:GF(mode) abort
   try
-    let results = &filetype ==# 'fugitive' ? s:CfilePorcelain() : &filetype ==# 'gitcommit' ? s:StatusCfile() : s:cfile()
-  catch /^fugitive:/
+    let results = &filetype ==# 'fujjitive' ? s:CfilePorcelain() : &filetype ==# 'gitcommit' ? s:StatusCfile() : s:cfile()
+  catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
   endtry
   if len(results) > 1
@@ -8347,7 +8189,7 @@ function! s:GF(mode) abort
   endif
 endfunction
 
-function! fugitive#Cfile() abort
+function! fujjitive#Cfile() abort
   let pre = ''
   let results = s:cfile()
   if empty(results)
@@ -8370,7 +8212,7 @@ endfunction
 
 " Section: Statusline
 
-function! fugitive#Statusline(...) abort
+function! fujjitive#Statusline(...) abort
   let dir = s:Dir(bufnr(''))
   if empty(dir)
     return ''
@@ -8380,17 +8222,17 @@ function! fugitive#Statusline(...) abort
   if len(commit)
     let status .= ':' . commit[0:6]
   endif
-  let status .= '('.fugitive#Head(7, dir).')'
+  let status .= '('.fujjitive#Head(7, dir).')'
   return '[Git'.status.']'
 endfunction
 
-function! fugitive#statusline(...) abort
-  return fugitive#Statusline()
+function! fujjitive#statusline(...) abort
+  return fujjitive#Statusline()
 endfunction
 
 " Section: Folding
 
-function! fugitive#Foldtext() abort
+function! fujjitive#Foldtext() abort
   if &foldmethod !=# 'syntax'
     return foldtext()
   endif
@@ -8402,7 +8244,7 @@ function! fugitive#Foldtext() abort
     for lnum in range(v:foldstart, v:foldend)
       let line = getline(lnum)
       if filename ==# '' && line =~# '^[+-]\{3\} "\=[abciow12]/'
-        let filename = fugitive#Unquote(line[4:-1])[2:-1]
+        let filename = fujjitive#Unquote(line[4:-1])[2:-1]
       endif
       if line =~# '^+'
         let add += 1
@@ -8413,7 +8255,7 @@ function! fugitive#Foldtext() abort
       endif
     endfor
     if filename ==# ''
-      let filename = fugitive#Unquote(matchstr(line_foldstart, '^diff .\{-\} \zs"\=[abciow12]/\zs.*\ze "\=[abciow12]/'))[2:-1]
+      let filename = fujjitive#Unquote(matchstr(line_foldstart, '^diff .\{-\} \zs"\=[abciow12]/\zs.*\ze "\=[abciow12]/'))[2:-1]
     endif
     if filename ==# ''
       let filename = line_foldstart[5:-1]
@@ -8425,7 +8267,7 @@ function! fugitive#Foldtext() abort
     endif
   elseif line_foldstart =~# '^@@\+ .* @@'
     return '+-' . v:folddashes . ' ' . line_foldstart
-  elseif &filetype ==# 'fugitive' && line_foldstart =~# '^[A-Z][a-z].* (\d\+)$'
+  elseif &filetype ==# 'fujjitive' && line_foldstart =~# '^[A-Z][a-z].* (\d\+)$'
     let c = +matchstr(line_foldstart, '(\zs\d\+\ze)$')
     return '+-' . v:folddashes . printf('%3d item', c) . (c == 1 ? ':  ' : 's: ') . matchstr(line_foldstart, '.*\ze (\d\+)$')
   elseif &filetype ==# 'gitcommit' && line_foldstart =~# '^# .*:$'
@@ -8438,8 +8280,8 @@ function! fugitive#Foldtext() abort
   return foldtext()
 endfunction
 
-function! fugitive#foldtext() abort
-  return fugitive#Foldtext()
+function! fujjitive#foldtext() abort
+  return fujjitive#Foldtext()
 endfunction
 
 " Section: End
