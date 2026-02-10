@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  lint:
+    name: Lint VimScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install vint
+        run: pip install vim-vint
+
+      - name: Run vint
+        run: vint --style-problem plugin/**/*.vim autoload/**/*.vim ftplugin/**/*.vim ftdetect/**/*.vim syntax/**/*.vim
+
+  vim:
+    name: Vim ${{ matrix.vim_version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        vim_version: ["v9.0.0000", "v9.1.0000"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Vim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          vim_type: vim
+          version: ${{ matrix.vim_version }}
+
+      - name: Verify plugin loads without errors
+        run: |
+          vim --not-a-term -u NONE -N \
+            --cmd "set rtp^=$PWD" \
+            --cmd "runtime plugin/fujjitive.vim" \
+            -c "if !exists('g:loaded_fujjitive') | cquit 1 | endif" \
+            -c "quit"
+
+      - name: Verify public API functions exist
+        run: |
+          vim --not-a-term -u NONE -N \
+            --cmd "set rtp^=$PWD" \
+            --cmd "runtime plugin/fujjitive.vim" \
+            -c "let errors = []" \
+            -c "for fn in ['FujjitiveJJDir', 'FujjitiveFind', 'FujjitiveParse', 'FujjitiveExecute', 'FujjitiveConfig', 'FujjitiveStatusline']" \
+            -c "  if !exists('*' . fn) | call add(errors, fn . ' not found') | endif" \
+            -c "endfor" \
+            -c "if len(errors) | echoerr join(errors, ', ') | cquit 1 | endif" \
+            -c "quit"
+
+      - name: Verify autoload functions load on demand
+        run: |
+          vim --not-a-term -u NONE -N \
+            --cmd "set rtp^=$PWD" \
+            --cmd "runtime plugin/fujjitive.vim" \
+            -c "try | call fujjitive#Statusline() | catch /^Vim\%((\a\+)\)\=:E117:/ | cquit 1 | endtry" \
+            -c "quit"
+
+      - name: Verify commands are defined
+        run: |
+          vim --not-a-term -u NONE -N \
+            --cmd "set rtp^=$PWD" \
+            --cmd "runtime plugin/fujjitive.vim" \
+            -c "redir => cmds | silent command JJ | redir END" \
+            -c "if cmds !~# 'JJ' | cquit 1 | endif" \
+            -c "quit"
+
+      - name: Verify help documentation
+        run: |
+          vim --not-a-term -u NONE -N \
+            --cmd "set rtp^=$PWD" \
+            -c "helptags doc/" \
+            -c "help fujjitive" \
+            -c "if expand('%:t') !=# 'fujjitive.txt' | cquit 1 | endif" \
+            -c "quit"
+
+  neovim:
+    name: Neovim ${{ matrix.neovim_version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim_version: ["v0.9.5", "stable"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          vim_type: neovim
+          version: ${{ matrix.neovim_version }}
+
+      - name: Verify plugin loads without errors
+        run: |
+          nvim --headless -u NONE -N \
+            --cmd "set rtp^=$PWD" \
+            --cmd "runtime plugin/fujjitive.vim" \
+            -c "if !exists('g:loaded_fujjitive') | cquit 1 | endif" \
+            -c "quit"
+
+      - name: Verify public API functions exist
+        run: |
+          nvim --headless -u NONE -N \
+            --cmd "set rtp^=$PWD" \
+            --cmd "runtime plugin/fujjitive.vim" \
+            -c "let errors = []" \
+            -c "for fn in ['FujjitiveJJDir', 'FujjitiveFind', 'FujjitiveParse', 'FujjitiveExecute', 'FujjitiveConfig', 'FujjitiveStatusline']" \
+            -c "  if !exists('*' . fn) | call add(errors, fn . ' not found') | endif" \
+            -c "endfor" \
+            -c "if len(errors) | echoerr join(errors, ', ') | cquit 1 | endif" \
+            -c "quit"
+
+      - name: Verify commands are defined
+        run: |
+          nvim --headless -u NONE -N \
+            --cmd "set rtp^=$PWD" \
+            --cmd "runtime plugin/fujjitive.vim" \
+            -c "redir => cmds | silent command JJ | redir END" \
+            -c "if cmds !~# 'JJ' | cquit 1 | endif" \
+            -c "quit"
+
+      - name: Verify help documentation
+        run: |
+          nvim --headless -u NONE -N \
+            --cmd "set rtp^=$PWD" \
+            -c "helptags doc/" \
+            -c "help fujjitive" \
+            -c "if expand('%:t') !=# 'fujjitive.txt' | cquit 1 | endif" \
+            -c "quit"
