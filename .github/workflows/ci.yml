@@ -19,10 +19,10 @@ jobs:
           python-version: "3.x"
 
       - name: Install vint
-        run: pip install vim-vint
+        run: pip install setuptools vim-vint
 
       - name: Run vint
-        run: vint -w plugin/ autoload/ ftplugin/ ftdetect/ syntax/
+        run: vint -e plugin/ autoload/ ftplugin/ ftdetect/ syntax/
 
   vim:
     name: Vim ${{ matrix.vim_version }}
@@ -37,7 +37,6 @@ jobs:
       - name: Set up Vim
         uses: rhysd/action-setup-vim@v1
         with:
-          vim_type: vim
           version: ${{ matrix.vim_version }}
 
       - name: Verify plugin loads without errors
@@ -92,7 +91,7 @@ jobs:
       - name: Set up Neovim
         uses: rhysd/action-setup-vim@v1
         with:
-          vim_type: neovim
+          neovim: true
           version: ${{ matrix.neovim_version }}
 
       - name: Verify plugin loads without errors
