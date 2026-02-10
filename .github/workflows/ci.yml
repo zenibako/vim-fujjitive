@@ -19,7 +19,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install vint
-        run: pip install setuptools vim-vint
+        run: pip install "setuptools<70" vim-vint
 
       - name: Run vint
         run: vint -e plugin/ autoload/ ftplugin/ ftdetect/ syntax/
