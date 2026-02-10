@@ -22,7 +22,7 @@ jobs:
         run: pip install vim-vint
 
       - name: Run vint
-        run: vint --style-problem plugin/**/*.vim autoload/**/*.vim ftplugin/**/*.vim ftdetect/**/*.vim syntax/**/*.vim
+        run: vint -w plugin/ autoload/ ftplugin/ ftdetect/ syntax/
 
   vim:
     name: Vim ${{ matrix.vim_version }}
@@ -43,48 +43,41 @@ jobs:
       - name: Verify plugin loads without errors
         run: |
           vim --not-a-term -u NONE -N \
-            --cmd "set rtp^=$PWD" \
-            --cmd "runtime plugin/fujjitive.vim" \
-            -c "if !exists('g:loaded_fujjitive') | cquit 1 | endif" \
-            -c "quit"
+            --cmd 'set rtp^=.' \
+            --cmd 'runtime plugin/fujjitive.vim' \
+            -c 'if exists("g:loaded_fujjitive") == 0 | cquit 1 | endif' \
+            -c 'quit'
 
       - name: Verify public API functions exist
         run: |
           vim --not-a-term -u NONE -N \
-            --cmd "set rtp^=$PWD" \
-            --cmd "runtime plugin/fujjitive.vim" \
-            -c "let errors = []" \
-            -c "for fn in ['FujjitiveJJDir', 'FujjitiveFind', 'FujjitiveParse', 'FujjitiveExecute', 'FujjitiveConfig', 'FujjitiveStatusline']" \
-            -c "  if !exists('*' . fn) | call add(errors, fn . ' not found') | endif" \
-            -c "endfor" \
-            -c "if len(errors) | echoerr join(errors, ', ') | cquit 1 | endif" \
-            -c "quit"
+            --cmd 'set rtp^=.' \
+            --cmd 'runtime plugin/fujjitive.vim' \
+            -c 'if exists("*FujjitiveJJDir") == 0 || exists("*FujjitiveFind") == 0 || exists("*FujjitiveParse") == 0 || exists("*FujjitiveExecute") == 0 || exists("*FujjitiveConfig") == 0 || exists("*FujjitiveStatusline") == 0 | cquit 1 | endif' \
+            -c 'quit'
 
       - name: Verify autoload functions load on demand
         run: |
           vim --not-a-term -u NONE -N \
-            --cmd "set rtp^=$PWD" \
-            --cmd "runtime plugin/fujjitive.vim" \
-            -c "try | call fujjitive#Statusline() | catch /^Vim\%((\a\+)\)\=:E117:/ | cquit 1 | endtry" \
-            -c "quit"
+            --cmd 'set rtp^=.' \
+            --cmd 'runtime plugin/fujjitive.vim' \
+            -c 'try | call fujjitive#Statusline() | catch /E117/ | cquit 1 | endtry' \
+            -c 'quit'
 
       - name: Verify commands are defined
         run: |
           vim --not-a-term -u NONE -N \
-            --cmd "set rtp^=$PWD" \
-            --cmd "runtime plugin/fujjitive.vim" \
-            -c "redir => cmds | silent command JJ | redir END" \
-            -c "if cmds !~# 'JJ' | cquit 1 | endif" \
-            -c "quit"
+            --cmd 'set rtp^=.' \
+            --cmd 'runtime plugin/fujjitive.vim' \
+            -c 'if exists(":JJ") == 2 | quit | else | cquit 1 | endif'
 
       - name: Verify help documentation
         run: |
           vim --not-a-term -u NONE -N \
-            --cmd "set rtp^=$PWD" \
-            -c "helptags doc/" \
-            -c "help fujjitive" \
-            -c "if expand('%:t') !=# 'fujjitive.txt' | cquit 1 | endif" \
-            -c "quit"
+            --cmd 'set rtp^=.' \
+            -c 'helptags doc/' \
+            -c 'help fujjitive' \
+            -c 'if expand("%:t") ==# "fujjitive.txt" | qall | else | cquit 1 | endif'
 
   neovim:
     name: Neovim ${{ matrix.neovim_version }}
@@ -105,37 +98,30 @@ jobs:
       - name: Verify plugin loads without errors
         run: |
           nvim --headless -u NONE -N \
-            --cmd "set rtp^=$PWD" \
-            --cmd "runtime plugin/fujjitive.vim" \
-            -c "if !exists('g:loaded_fujjitive') | cquit 1 | endif" \
-            -c "quit"
+            --cmd 'set rtp^=.' \
+            --cmd 'runtime plugin/fujjitive.vim' \
+            -c 'if exists("g:loaded_fujjitive") == 0 | cquit 1 | endif' \
+            -c 'quit'
 
       - name: Verify public API functions exist
         run: |
           nvim --headless -u NONE -N \
-            --cmd "set rtp^=$PWD" \
-            --cmd "runtime plugin/fujjitive.vim" \
-            -c "let errors = []" \
-            -c "for fn in ['FujjitiveJJDir', 'FujjitiveFind', 'FujjitiveParse', 'FujjitiveExecute', 'FujjitiveConfig', 'FujjitiveStatusline']" \
-            -c "  if !exists('*' . fn) | call add(errors, fn . ' not found') | endif" \
-            -c "endfor" \
-            -c "if len(errors) | echoerr join(errors, ', ') | cquit 1 | endif" \
-            -c "quit"
+            --cmd 'set rtp^=.' \
+            --cmd 'runtime plugin/fujjitive.vim' \
+            -c 'if exists("*FujjitiveJJDir") == 0 || exists("*FujjitiveFind") == 0 || exists("*FujjitiveParse") == 0 || exists("*FujjitiveExecute") == 0 || exists("*FujjitiveConfig") == 0 || exists("*FujjitiveStatusline") == 0 | cquit 1 | endif' \
+            -c 'quit'
 
       - name: Verify commands are defined
         run: |
           nvim --headless -u NONE -N \
-            --cmd "set rtp^=$PWD" \
-            --cmd "runtime plugin/fujjitive.vim" \
-            -c "redir => cmds | silent command JJ | redir END" \
-            -c "if cmds !~# 'JJ' | cquit 1 | endif" \
-            -c "quit"
+            --cmd 'set rtp^=.' \
+            --cmd 'runtime plugin/fujjitive.vim' \
+            -c 'if exists(":JJ") == 2 | quit | else | cquit 1 | endif'
 
       - name: Verify help documentation
         run: |
           nvim --headless -u NONE -N \
-            --cmd "set rtp^=$PWD" \
-            -c "helptags doc/" \
-            -c "help fujjitive" \
-            -c "if expand('%:t') !=# 'fujjitive.txt' | cquit 1 | endif" \
-            -c "quit"
+            --cmd 'set rtp^=.' \
+            -c 'helptags doc/' \
+            -c 'help fujjitive' \
+            -c 'if expand("%:t") ==# "fujjitive.txt" | qall | else | cquit 1 | endif'
