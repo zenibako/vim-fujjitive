@@ -3260,14 +3260,6 @@ augroup END
 " Section: :JJ
 
 function! s:AskPassArgs(dir) abort
-  if (len($DISPLAY) || len($TERM_PROGRAM) || has('gui_running')) &&
-        \ empty($JJ_ASKPASS) && empty($SSH_ASKPASS) && empty(fujjitive#ConfigGetAll('core.askpass', a:dir))
-    if s:executable(s:JJVimExecPath() . '/jj-gui--askpass')
-      return ['-c', 'core.askPass=' . s:JJExecPath()[0] . '/jj-gui--askpass']
-    elseif s:executable('ssh-askpass')
-      return ['-c', 'core.askPass=ssh-askpass']
-    endif
-  endif
   return []
 endfunction
 
@@ -3633,10 +3625,6 @@ function! fujjitive#PagerFor(argv, ...) abort
 endfunction
 
 let s:disable_colors = []
-for s:colortype in ['advice', 'branch', 'diff', 'grep', 'interactive', 'pager', 'push', 'remote', 'showBranch', 'status', 'transport', 'ui']
-  call extend(s:disable_colors, ['-c', 'color.' . s:colortype . '=false'])
-endfor
-unlet s:colortype
 function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
   exe s:VersionCheck()
   let dir = call('s:Dir', a:000)
@@ -3819,7 +3807,7 @@ function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
       let env.JJ_MERGE_AUTOEDIT = '1'
       let tmp.echo = ''
     endif
-    let args = s:disable_colors + flags + ['-c', 'advice.waitingForEditor=false'] + args
+    let args = flags + args
     let argv = s:UserCommandList({'git': options.git, 'jj_dir': options.jj_dir}) + args
     let [argv, jobopts] = s:JobOpts(argv, env)
     call fujjitive#Autowrite()
@@ -3871,7 +3859,7 @@ function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
         let guioptions = &guioptions
         set guioptions-=!
       endif
-      silent! execute '!' . escape(pre . s:shellesc(s:UserCommandList(options) + s:disable_colors + flags + ['--no-pager'] + args), '!#%') .
+      silent! execute '!' . escape(pre . s:shellesc(s:UserCommandList(options) + flags + ['--no-pager'] + args), '!#%') .
             \ (&shell =~# 'csh' ? ' >& ' . s:shellesc(state.file) : ' > ' . s:shellesc(state.file) . ' 2>&1')
       let state.exit_status = v:shell_error
     finally
@@ -5461,7 +5449,7 @@ function! s:ToolStream(line1, line2, range, bang, mods, options, args, state) ab
   let a:state.mode = 'init'
   let a:state.from = ''
   let a:state.to = ''
-  let exec = s:UserCommandList({'git': a:options.git, 'jj_dir': a:options.jj_dir}) + ['-c', 'diff.context=0']
+  let exec = s:UserCommandList({'git': a:options.git, 'jj_dir': a:options.jj_dir})
   let exec += a:options.flags + ['--no-pager', 'diff', '--no-ext-diff', '--no-color', '--no-prefix'] + argv
   if prompt
     let title = ':JJ ' . s:fnameescape(a:options.flags + [a:options.subcommand] + a:options.subcommand_args)
@@ -5963,7 +5951,7 @@ function! fujjitive#LogCommand(line1, count, range, bang, mods, args, type) abor
     let format = "%h %P\t%H " . g:fujjitive_summary_format
   endif
   let cmd = ['--no-pager']
-  call extend(cmd, ['-c', 'diff.context=0', '-c', 'diff.noprefix=false', 'log'] +
+  call extend(cmd, ['log'] +
         \ ['--no-color', '--no-ext-diff', '--pretty=format:fugitive ' . format] +
         \ args + extra_args + paths + extra_paths)
   let state.target = path
@@ -7484,7 +7472,7 @@ function! fujjitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abo
         if line2 > 0 && empty(arg) && commit =~# '^\x\{40,\}$' && type ==# 'blob'
           let blame_list = tempname()
           call writefile([commit, ''], blame_list, 'b')
-          let blame_cmd = ['-c', 'blame.coloring=none', 'blame', '-L', line1.','.line2, '-S', blame_list, '-s', '--show-number']
+          let blame_cmd = ['blame', '-L', line1.','.line2, '-S', blame_list, '-s', '--show-number']
           if !&l:modified || has_key(result, 'origin_bufnr')
             let [blame, exec_error] = s:LinesError(blame_cmd + ['./' . path], dir)
           else

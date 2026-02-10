@@ -94,6 +94,12 @@ jobs:
           neovim: true
           version: ${{ matrix.neovim_version }}
 
+      - name: Install Jujutsu (jj)
+        run: |
+          curl -LsSf https://github.com/jj-vcs/jj/releases/download/v0.38.0/jj-v0.38.0-x86_64-unknown-linux-musl.tar.gz \
+            | tar xz -C /usr/local/bin
+          jj version
+
       - name: Verify plugin loads without errors
         run: |
           nvim --headless -u NONE -N \
@@ -132,3 +138,21 @@ jobs:
             -c 'helptags doc/' \
             -c 'help fujjitive' \
             -c 'if expand("%:t") ==# "fujjitive.txt" | qall | else | cquit 1 | endif'
+
+      - name: Verify :J log opens pager buffer with log output
+        env:
+          JJ_USER: Test User
+          JJ_EMAIL: test@example.com
+        run: |
+          tmpdir=$(mktemp -d)
+          cd "$tmpdir"
+          jj git init
+          echo "test content" > file.txt
+          jj describe -m "test: initial commit"
+
+          nvim --headless -u NONE -N \
+            --cmd 'set rtp^=${{ github.workspace }}' \
+            --cmd 'runtime plugin/fujjitive.vim' \
+            -c 'edit file.txt' \
+            -c 'J log' \
+            -c 'if &filetype ==# "git" && line("$") > 1 | qall | else | cquit 1 | endif'

@@ -338,7 +338,9 @@ endfunction
 let s:worktree_for_dir = {}
 let s:dir_for_worktree = {}
 function! s:Tree(path) abort
-  if a:path =~# '/\.git$'
+  if a:path =~# '/\.jj$'
+    return len(a:path) ==# 4 ? '/' : a:path[0:-5]
+  elseif a:path =~# '/\.git$'
     return len(a:path) ==# 5 ? '/' : a:path[0:-6]
   elseif a:path ==# ''
     return ''
@@ -453,6 +455,11 @@ function! FujjitiveExtractJJDir(path) abort
       return env_git_dir
     elseif has_key(s:dir_for_worktree, root)
       return s:dir_for_worktree[root]
+    endif
+    let jj_dir = substitute(root, '[\/]$', '', '') . '/.jj'
+    if isdirectory(jj_dir)
+      let s:resolved_jj_dirs[jj_dir] = jj_dir
+      return jj_dir
     endif
     let dir = substitute(root, '[\/]$', '', '') . '/.git'
     let resolved = s:ResolveJJDir(dir)
