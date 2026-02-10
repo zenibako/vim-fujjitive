@@ -111,6 +111,14 @@ jobs:
             -c 'if exists("*FujjitiveJJDir") == 0 || exists("*FujjitiveFind") == 0 || exists("*FujjitiveParse") == 0 || exists("*FujjitiveExecute") == 0 || exists("*FujjitiveConfig") == 0 || exists("*FujjitiveStatusline") == 0 | cquit 1 | endif' \
             -c 'quit'
 
+      - name: Verify autoload functions load on demand
+        run: |
+          nvim --headless -u NONE -N \
+            --cmd 'set rtp^=.' \
+            --cmd 'runtime plugin/fujjitive.vim' \
+            -c 'try | call fujjitive#Statusline() | catch /E117/ | cquit 1 | endtry' \
+            -c 'quit'
+
       - name: Verify commands are defined
         run: |
           nvim --headless -u NONE -N \
