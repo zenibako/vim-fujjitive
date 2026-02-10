@@ -74,7 +74,17 @@ Fujjitive adapts fugitive.vim's Git-centric workflow to Jujutsu's model:
 ## Installation
 
 Install using your favorite package manager, or use Vim's built-in package
-support:
+support.
+
+### [lazy.nvim](https://github.com/folke/lazy.nvim)
+
+```lua
+{
+  "your-username/vim-fujjitive",
+}
+```
+
+### Vim packages
 
     mkdir -p ~/.vim/pack/tpope/start
     cd ~/.vim/pack/tpope/start

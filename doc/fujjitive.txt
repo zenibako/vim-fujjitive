@@ -10,6 +10,22 @@ INTRODUCTION                                    *fujjitive*
 Whenever you edit a file from a JJ repository, a set of commands is defined
 that serve as a gateway to JJ.
 
+INSTALLATION                                    *fujjitive-installation*
+
+For lazy.nvim (https://github.com/folke/lazy.nvim), add the following to your
+plugin list:
+>lua
+    {
+      "your-username/vim-fujjitive",
+    }
+<
+For Vim's built-in package support:
+>
+    mkdir -p ~/.vim/pack/tpope/start
+    cd ~/.vim/pack/tpope/start
+    git clone https://github.com/your-username/vim-fujjitive.git
+    vim -u NONE -c "helptags fujjitive/doc" -c q
+<
 COMMANDS                                        *fujjitive-commands*
 
 These commands are local to the buffers in which they work (generally, buffers
