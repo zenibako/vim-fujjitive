@@ -3987,7 +3987,9 @@ let s:git_to_jj_renames = {
 
 function! fujjitive#GitCommand(line1, line2, range, bang, mods, arg, ...) abort
   let subcmd = matchstr(a:arg, '^\s*\zs[[:alnum:]][[:alnum:]-]*')
-  if has_key(s:git_bridge_commands, subcmd)
+  if subcmd ==# 'status'
+    return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods, '')
+  elseif has_key(s:git_bridge_commands, subcmd)
     return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods, 'git ' . a:arg)
   elseif has_key(s:git_to_jj_commands, subcmd)
     return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods, a:arg)
@@ -6938,6 +6940,11 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
         call add(commits, remove(flags, i))
         continue
       endif
+      " Recognize jj revsets (@, @-, @--, @~N, change IDs, root(), trunk(), etc.)
+      if arg =~# '^@\|^\x\{8,\}$\|^[a-z]\{8,\}$\|\w\+(.*)$'
+        call add(commits, remove(flags, i))
+        continue
+      endif
       try
         let dcf = s:DirCommitFile(fujjitive#Find(arg, dir))
         if len(dcf[1]) && empty(dcf[2])
@@ -6959,7 +6966,7 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
   try
     let blame_template = 'self.commit().change_id().normal_hex().substr(0, 12)'
           \ . ' ++ " " ++ pad_start(4, self.line_number())'
-          \ . ' ++ " (" ++ pad_end(20, self.commit().author().name())'
+          \ . ' ++ " (" ++ pad_end(20, truncate_end(20, self.commit().author().name()))'
           \ . ' ++ " " ++ self.commit().author().timestamp().format("%Y-%m-%d %H:%M:%S %z")'
           \ . ' ++ " " ++ pad_start(4, self.line_number())'
           \ . ' ++ ") " ++ self.content()'
