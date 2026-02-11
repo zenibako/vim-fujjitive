@@ -379,8 +379,8 @@ function! s:JobVimExit(dict, callback, temp, job, status) abort
 endfunction
 
 function! s:JobNvimExit(dict, callback, job, data, type) dict abort
-  let a:dict.stdout = self.stdout
-  let a:dict.stderr = self.stderr
+  let a:dict.stdout = get(self, 'stdout', [''])
+  let a:dict.stderr = get(self, 'stderr', [''])
   let a:dict.exit_status = a:data
   call remove(a:dict, 'job')
   call call(a:callback[0], [a:dict] + a:callback[1:-1])
@@ -609,9 +609,8 @@ function! s:HasOpt(args, ...) abort
 endfunction
 
 function! s:PreparePathArgs(cmd, dir, literal, explicit) abort
-  if !a:explicit
-    call insert(a:cmd, '')
-  endif
+  " In git, inserting an empty string was harmless (git ignores it).
+  " jj treats '' as an unrecognized subcommand, so we skip it entirely.
   let split = index(a:cmd, '--')
   for i in range(split < 0 ? len(a:cmd) : split)
       if type(a:cmd[i]) == type(0)
@@ -810,13 +809,13 @@ function! fujjitive#PrepareJob(...) abort
   let tree = s:Tree(repo)
   if empty(tree) || index(cmd, '--') == len(cmd) - 1
     let dict.cwd = getcwd()
-    call extend(cmd, ['--repository=' . FujjitiveJJPath(dir)], 'keep')
+    " dir is the .jj path; strip trailing /.jj to get the workspace root
+    let repo_root = substitute(FujjitiveJJPath(dir), '/\.jj$', '', '')
+    call extend(cmd, ['-R', repo_root], 'keep')
   else
     let dict.cwd = s:VimSlash(tree)
-    call extend(cmd, ['-C', FujjitiveJJPath(tree)], 'keep')
-    if !s:cpath(tree . '/.git', dir) || len($JJ_DIR)
-      call extend(cmd, ['--repository=' . FujjitiveJJPath(dir)], 'keep')
-    endif
+    " tree is already the workspace root
+    call extend(cmd, ['-R', FujjitiveJJPath(tree)], 'keep')
   endif
   call extend(cmd, git, 'keep')
   return s:JobOpts(cmd, exec_env) + [dict]
@@ -1074,7 +1073,12 @@ function! s:ConfigCallback(r, into) abort
     if len(key) ==# len(line)
       call add(dict[key], 1)
     else
-      call add(dict[key], strpart(line, len(key) + 1))
+      let val = strpart(line, len(key) + 1)
+      " Strip surrounding TOML quotes from jj config values
+      if val =~# '^".*"$'
+        let val = val[1:-2]
+      endif
+      call add(dict[key], val)
     endif
   endfor
   let callbacks = remove(dict, 'callbacks')
@@ -1141,7 +1145,9 @@ function! fujjitive#Config(...) abort
     let dict.jj_dir = git_dir
     let into = ['running', dict]
     let dict.callbacks = []
-    let exec = fujjitive#Execute([dir, 'config', '--list', '-z', '--'], function('s:ConfigCallback'), into)
+    " jj uses 'config list' (subcommand) not 'config --list' (flag).
+    " Template outputs key\nvalue\0 pairs, matching git's --list -z format.
+    let exec = fujjitive#Execute([dir, 'config', 'list', '-T', 'name ++ "\n" ++ value ++ "\0"'], function('s:ConfigCallback'), into)
     if has_key(exec, 'job')
       let dict.job = exec.job
     endif
@@ -2969,7 +2975,7 @@ function! fujjitive#BufReadStatus(cmdbang) abort
     setlocal readonly nomodifiable noswapfile nomodeline buftype=nowrite
     call s:MapStatus()
 
-    call s:StatusRender(stat)
+    exe s:StatusRender(stat)
 
     doautocmd <nomodeline> BufReadPost
     if &bufhidden ==# ''
