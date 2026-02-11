@@ -30,7 +30,7 @@ syn match fujjitiveHash /\S\@<!\x\{4,\}\S\@!/ contained
 syn region fujjitiveHunk start=/^\%(@@\+ -\)\@=/ end=/^\%([A-Za-z?@]\|$\)\@=/ contains=diffLine,diffRemoved,diffAdded,diffNoEOL containedin=@fujjitiveSection fold
 
 " Sections with simple single-word names
-for s:section in ['Untracked', 'Mutable', 'Unpushed', 'Unpulled']
+for s:section in ['Untracked', 'Unpushed', 'Unpulled']
   exe 'syn region fujjitive' . s:section . 'Section start=/^\%(' . s:section . ' .*(\d\++\=)$\)\@=/ contains=fujjitive' . s:section . 'Heading end=/^$/ fold'
   exe 'syn match fujjitive' . s:section . 'Modifier /^[MADRCU?] / contained containedin=fujjitive' . s:section . 'Section'
   exe 'syn cluster fujjitiveSection add=fujjitive' . s:section . 'Section'
@@ -44,6 +44,18 @@ syn match fujjitiveWorkingCopyModifier /^[MADRCU?] / contained containedin=fujji
 syn cluster fujjitiveSection add=fujjitiveWorkingCopySection
 syn match fujjitiveWorkingCopyHeading /^Working copy changes\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
 
+" 'Current branch' section — mutable ancestors of the working copy
+syn region fujjitiveCurrentBranchSection start=/^\%(Current branch .*(\d\++\=)$\)\@=/ contains=fujjitiveCurrentBranchHeading end=/^$/ fold
+syn match fujjitiveCurrentBranchModifier /^[MADRCU?] / contained containedin=fujjitiveCurrentBranchSection
+syn cluster fujjitiveSection add=fujjitiveCurrentBranchSection
+syn match fujjitiveCurrentBranchHeading /^Current branch\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
+
+" 'Other mutable' section — mutable changes not on the current branch
+syn region fujjitiveOtherMutableSection start=/^\%(Other mutable .*(\d\++\=)$\)\@=/ contains=fujjitiveOtherMutableHeading end=/^$/ fold
+syn match fujjitiveOtherMutableModifier /^[MADRCU?] / contained containedin=fujjitiveOtherMutableSection
+syn cluster fujjitiveSection add=fujjitiveOtherMutableSection
+syn match fujjitiveOtherMutableHeading /^Other mutable\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
+
 " Markers for jj-specific commit metadata in log sections
 syn match fujjitiveEmpty /(empty)/ contained containedin=@fujjitiveSection
 syn match fujjitiveConflict /(conflict)/ contained containedin=@fujjitiveSection
@@ -54,7 +66,8 @@ hi def link fujjitiveHelpTag Tag
 hi def link fujjitiveHeading PreProc
 hi def link fujjitiveUntrackedHeading PreCondit
 hi def link fujjitiveWorkingCopyHeading Macro
-hi def link fujjitiveMutableHeading PreProc
+hi def link fujjitiveCurrentBranchHeading PreProc
+hi def link fujjitiveOtherMutableHeading PreProc
 hi def link fujjitiveUnpushedHeading PreProc
 hi def link fujjitiveUnpulledHeading PreProc
 hi def link fujjitiveModifier Type

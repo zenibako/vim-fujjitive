@@ -157,4 +157,52 @@ fi
 
 cleanup
 
+# ── Test: Current branch and Other mutable sections ──────────────────────────
+
+setup_jj_repo
+
+# Create a second branch with its own commit, then switch back
+(
+  cd "$TEST_REPO"
+  # Current branch has the initial commit + working copy
+  # Create a new change on a separate branch
+  jj new 'root()' -m "other: unrelated work" 2>/dev/null
+  # Go back to the original working copy
+  jj new @ -m "test: back on main" 2>/dev/null || true
+)
+
+if run_nvim_test_in "$TEST_REPO" <<'VIMSCRIPT'
+edit file.txt
+J
+
+let lines = getline(1, '$')
+let content = join(lines, "\n")
+
+" Check that 'Current branch' section exists
+let has_current = 0
+for l in lines
+  if l =~# '^Current branch'
+    let has_current = 1
+    break
+  endif
+endfor
+if !has_current
+  echoerr 'Missing "Current branch" section. Buffer: ' . content
+  cquit 1
+endif
+
+" Check that old 'Mutable' section does NOT exist
+for l in lines
+  if l =~# '^Mutable '
+    echoerr 'Found old "Mutable" section that should have been replaced. Buffer: ' . content
+    cquit 1
+  endif
+endfor
+VIMSCRIPT
+then pass "Status buffer shows Current branch section (not Mutable)"
+else fail "Status buffer shows Current branch section (not Mutable)"
+fi
+
+cleanup
+
 finish

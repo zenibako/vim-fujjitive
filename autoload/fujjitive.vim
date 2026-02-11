@@ -2732,7 +2732,8 @@ function! s:MapStatus() abort
   call s:Map('n', 'U', ":<C-U>JJ restore<CR>", '<silent>')
   call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Working copy changes')")
   call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Working copy changes', 'Untracked')")
-  call s:MapMotion('gm', "exe <SID>StageJump(v:count, 'Mutable')")
+  call s:MapMotion('gc', "exe <SID>StageJump(v:count, 'Current branch')")
+  call s:MapMotion('gm', "exe <SID>StageJump(v:count, 'Other mutable')")
   call s:MapMotion('gp', "exe <SID>StageJump(v:count, 'Unpushed')")
   call s:MapMotion('gP', "exe <SID>StageJump(v:count, 'Unpulled')")
   call s:Map('n', 'C', ":echoerr 'fujjitive: C has been removed in favor of cc'<CR>", '<silent><unique>')
@@ -2910,7 +2911,8 @@ function! s:StatusRender(stat) abort
     " A full rename of the internal key is deferred to a future phase.
     call s:AddDiffSection(to, stat, 'Unstaged', unstaged, 'Working copy changes')
 
-    call s:AddLogSection(to, 'Mutable', stat.mutable_log)
+    call s:AddLogSection(to, 'Current branch', stat.current_branch_log)
+    call s:AddLogSection(to, 'Other mutable', stat.other_mutable_log)
     call s:AddLogSection(to, 'Unpushed', stat.unpushed_log)
     call s:AddLogSection(to, 'Unpulled', stat.unpulled_log)
 
@@ -2944,7 +2946,8 @@ function! s:StatusRetrieve(bufnr, ...) abort
     let stat.status = {}
     let stat.running = stat.rev_parse
     let empty_log = {'error': 0, 'overflow': 0, 'entries': []}
-    let stat.mutable_log = empty_log
+    let stat.current_branch_log = empty_log
+    let stat.other_mutable_log = empty_log
     let stat.unpushed_log = empty_log
     let stat.unpulled_log = empty_log
   else
@@ -2954,7 +2957,8 @@ function! s:StatusRetrieve(bufnr, ...) abort
     let stat.running = stat.status
 
     " Fetch commit log sections for the summary buffer
-    let stat.mutable_log = s:QueryLog('mutable()', 50, dir)
+    let stat.current_branch_log = s:QueryLog('::@ & mutable()', 50, dir)
+    let stat.other_mutable_log = s:QueryLog('mutable() ~ ::@', 50, dir)
     let stat.unpushed_log = s:QueryLog('remote_bookmarks()..bookmarks()', 256, dir)
     let stat.unpulled_log = s:QueryLog('bookmarks()..remote_bookmarks()', 256, dir)
   endif
