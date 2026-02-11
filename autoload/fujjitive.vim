@@ -3785,21 +3785,24 @@ function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
   endif
   let wants_terminal = type(pager) ==# type('') ||
         \ (s:HasOpt(args, ['add', 'checkout', 'commit', 'reset', 'restore', 'stage', 'restore'], '-p', '--patch') ||
-        \ s:HasOpt(args, ['add', 'clean', 'stage'], '-i', '--interactive')) && pager is# 0
+        \ s:HasOpt(args, ['add', 'clean', 'stage'], '-i', '--interactive') ||
+        \ s:HasOpt(args, ['split'], '-i', '--interactive', '--tool') ||
+        \ (get(args, 0, '') ==# 'split' && index(args, '--') == -1)) && pager is# 0
   if wants_terminal
     let mods = substitute(s:Mods(a:mods), '\<tab\>', '-tab', 'g')
     let assign = len(dir) ? "|call FujjitiveDetect({'jj_dir':" . string(options.jj_dir) . '})' : ''
+    let did_change = '|autocmd TermClose <buffer> ++once call fujjitive#DidChange(' . string(dir) . ')'
     let argv = s:UserCommandList(options) + args
     let term_opts = len(env) ? {'env': env} : {}
     if has('nvim')
       call fujjitive#Autowrite()
-      return mods . (curwin ? 'enew' : 'new') . '|call termopen(' . string(argv) . ', ' . string(term_opts) . ')' . assign . '|startinsert' . after
+      return mods . (curwin ? 'enew' : 'new') . '|call termopen(' . string(argv) . ', ' . string(term_opts) . ')' . assign . did_change . '|startinsert' . after
     elseif exists('*term_start')
       call fujjitive#Autowrite()
       if curwin
         let term_opts.curwin = 1
       endif
-      return mods . 'call term_start(' . string(argv) . ', ' . string(term_opts) . ')' . assign . after
+      return mods . 'call term_start(' . string(argv) . ', ' . string(term_opts) . ')' . assign . did_change . after
     endif
   endif
   let state = {
