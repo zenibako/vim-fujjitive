@@ -5137,7 +5137,7 @@ function! s:DoToggleHeadHeader(value) abort
 endfunction
 
 function! s:DoToggleHelpHeader(value) abort
-  exe 'help fugitive-maps'
+  exe 'help fujjitive-maps'
 endfunction
 
 function! s:DoStagePushHeader(value) abort
@@ -7299,8 +7299,8 @@ endfunction
 function! s:BlameMaps(is_ftplugin) abort
   let ft = a:is_ftplugin
   call s:MapGitOps(ft)
-  call s:Map('n', '<F1>', ':help :Git_blame<CR>', '<silent>', ft)
-  call s:Map('n', 'g?',   ':help :Git_blame<CR>', '<silent>', ft)
+  call s:Map('n', '<F1>', ':help :JJ_blame<CR>', '<silent>', ft)
+  call s:Map('n', 'g?',   ':help :JJ_blame<CR>', '<silent>', ft)
   call s:Map('n', 'gq',   ':exe <SID>BlameQuit()<CR>', '<silent>', ft)
   call s:Map('n', '<2-LeftMouse>', ':<C-U>exe <SID>BlameCommit("exe <SID>BlameLeave()<Bar>edit")<CR>', '<silent>', ft)
   call s:Map('n', '<CR>', ':<C-U>exe <SID>BlameCommit("exe <SID>BlameLeave()<Bar>edit")<CR>', '<silent>', ft)
@@ -7995,8 +7995,8 @@ function! fujjitive#MapJumps(...) abort
 
     call s:Map('n', '.',     ":<C-U> <C-R>=<SID>fnameescape(fujjitive#Real(@%))<CR><Home>")
     call s:Map('x', '.',     ":<C-U> <C-R>=<SID>fnameescape(fujjitive#Real(@%))<CR><Home>")
-    call s:Map('n', 'g?',    ":<C-U>help fugitive-maps<CR>", '<silent>')
-    call s:Map('n', '<F1>',  ":<C-U>help fugitive-maps<CR>", '<silent>')
+    call s:Map('n', 'g?',    ":<C-U>help fujjitive-maps<CR>", '<silent>')
+    call s:Map('n', '<F1>',  ":<C-U>help fujjitive-maps<CR>", '<silent>')
   endif
 
   let old_browsex = maparg('<Plug>NetrwBrowseX', 'n')
