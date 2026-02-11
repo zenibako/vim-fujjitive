@@ -719,7 +719,7 @@ function! fujjitive#PrepareDirEnvGitFlagsArgs(...) abort
         let val = matchstr(cmd[i+1], '=\zs.*')
         let autoenv[var] = val
       endif
-      let i += 2
+      call remove(cmd, i, i + 1)
     elseif cmd[i] =~# '^--.*pathspecs$'
       let literal_pathspecs = (cmd[i] ==# '')
       let explicit_pathspec_option = 1
@@ -3736,18 +3736,19 @@ function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
   let i = 0
   while i < len(flags) - 1
     if flags[i] ==# '-c'
-      let i += 1
-      let config_name = tolower(matchstr(flags[i], '^[^=]\+'))
-      if has_key(s:prepare_env, config_name) && flags[i] =~# '=.'
-        let env[s:prepare_env[config_name]] = matchstr(flags[i], '=\zs.*')
+      let config_val = remove(flags, i, i + 1)
+      let config_name = tolower(matchstr(config_val[1], '^[^=]\+'))
+      if has_key(s:prepare_env, config_name) && config_val[1] =~# '=.'
+        let env[s:prepare_env[config_name]] = matchstr(config_val[1], '=\zs.*')
       endif
-      if flags[i] =~# '='
-        let config[config_name] = [matchstr(flags[i], '=\zs.*')]
+      if config_val[1] =~# '='
+        let config[config_name] = [matchstr(config_val[1], '=\zs.*')]
       else
         let config[config_name] = [1]
       endif
+    else
+      let i += 1
     endif
-    let i += 1
   endwhile
   let options = {'git': s:UserCommandList(), 'jj_dir': s:JJDir(dir), 'flags': flags, 'curwin': curwin}
   if empty(args) && pager is# -1
@@ -3964,20 +3965,47 @@ function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
   endif
 endfunction
 
-function! fujjitive#GitCommand(line1, line2, range, bang, mods, arg, ...) abort
-  return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods, 'git ' . a:arg)
-endfunction
+" Commands that require the 'jj git' prefix (git-bridge operations).
+let s:git_bridge_commands = {
+      \ 'clone': 1, 'fetch': 1, 'init': 1, 'push': 1, 'remote': 1,
+      \ 'export': 1, 'import': 1, 'submodule': 1,
+      \ }
 
-let s:jj_git_subcommands = [
-      \ 'clone', 'export', 'fetch', 'import', 'init', 'push', 'remote',
-      \ 'submodule',
-      \ ]
+" Git commands that map directly to jj equivalents (same name).
+let s:git_to_jj_commands = {
+      \ 'status': 1, 'diff': 1, 'log': 1, 'show': 1, 'commit': 1,
+      \ 'revert': 1, 'rebase': 1, 'bisect': 1, 'config': 1, 'tag': 1,
+      \ 'blame': 1,
+      \ }
+
+" Git commands that map to differently-named jj commands.
+let s:git_to_jj_renames = {
+      \ 'checkout': 'edit',
+      \ 'switch': 'edit',
+      \ 'stash': 'shelve',
+      \ }
+
+function! fujjitive#GitCommand(line1, line2, range, bang, mods, arg, ...) abort
+  let subcmd = matchstr(a:arg, '^\s*\zs[[:alnum:]][[:alnum:]-]*')
+  if has_key(s:git_bridge_commands, subcmd)
+    return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods, 'git ' . a:arg)
+  elseif has_key(s:git_to_jj_commands, subcmd)
+    return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods, a:arg)
+  elseif has_key(s:git_to_jj_renames, subcmd)
+    let rest = strpart(a:arg, matchend(a:arg, '^\s*[[:alnum:]][[:alnum:]-]*'))
+    return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods, s:git_to_jj_renames[subcmd] . rest)
+  else
+    return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods, a:arg)
+  endif
+endfunction
 
 function! fujjitive#GitComplete(lead, ...) abort
   let pre = a:0 > 1 ? strpart(a:1, 0, a:2) : ''
   let subcmd = matchstr(pre, '\u\w*[! ] *\zs[[:alnum:]][[:alnum:]-]*\ze ')
   if empty(subcmd)
-    return filter(copy(s:jj_git_subcommands), 'strpart(v:val, 0, strlen(a:lead)) ==# a:lead')
+    let completions = keys(s:git_bridge_commands) + keys(s:git_to_jj_commands) + keys(s:git_to_jj_renames)
+    call sort(completions)
+    return filter(completions, 'strpart(v:val, 0, strlen(a:lead)) ==# a:lead')
   endif
   return a:0 >= 3 ? fujjitive#Complete(a:lead, a:1, a:2, a:3) : []
 endfunction
@@ -6929,7 +6957,7 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
   endif
   exe s:BlameLeave()
   try
-    let cmd = a:options.flags + ['-c', 'blame.coloring=none', '-c', 'blame.blankBoundary=false', a:options.subcommand, '--show-number']
+    let cmd = a:options.flags + [a:options.subcommand, '--show-number']
     call extend(cmd, filter(copy(flags), 'v:val !~# "\\v^%(-b|--%(no-)=color-.*|--progress)$"'))
     if a:count > 0 && empty(ranges)
       let cmd += ['-L', (a:line1 ? a:line1 : line('.')) . ',' . (a:line1 ? a:line1 : line('.'))]
