@@ -3387,7 +3387,7 @@ function! s:RunReceive(state, tmp, type, job, data, ...) abort
     let cmd = matchstr(data, escape . "\007")[5:-2]
     let data = substitute(data, escape . "\007", '', 'g')
     if cmd =~# '^fujjitive:'
-      let a:state.request = strpart(cmd, 9)
+      let a:state.request = strpart(cmd, 10)
     endif
     let lines = split(a:tmp.err . data, "\r\\=\n", 1)
     let a:tmp.err = lines[-1]
