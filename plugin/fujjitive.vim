@@ -556,6 +556,10 @@ if exists(':J') != 2
 endif
 command! -bang -nargs=? -range=-1 -complete=customlist,fujjitive#Complete JJ exe fujjitive#Command(<line1>, <count>, +"<range>", <bang>0, "<mods>", <q-args>)
 
+if exists(':G') != 2
+  command! -bang -nargs=? -range=-1 -complete=customlist,fujjitive#GitComplete G exe fujjitive#GitCommand(<line1>, <count>, +"<range>", <bang>0, "<mods>", <q-args>)
+endif
+
 if exists(':JJstatus') != 2 && get(g:, 'fujjitive_legacy_commands', 0)
   exe 'command! -bang -bar     -range=-1' s:addr_other 'Gstatus exe fujjitive#Command(<line1>, <count>, +"<range>", <bang>0, "<mods>", <q-args>)'
         \ '|echohl WarningMSG|echomsg ":JJstatus is deprecated in favor of :JJ (with no arguments)"|echohl NONE'

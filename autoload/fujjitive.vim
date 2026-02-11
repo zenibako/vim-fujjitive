@@ -673,7 +673,7 @@ function! fujjitive#PrepareDirEnvGitFlagsArgs(...) abort
     let cmd = a:1.flags + a:1.args
     let dir = s:Dir(a:1)
     if has_key(a:1, 'git')
-      let git = a:1.jj
+      let git = a:1.git
     endif
     let env = get(a:1, 'env', {})
   else
@@ -700,7 +700,7 @@ function! fujjitive#PrepareDirEnvGitFlagsArgs(...) abort
         let dir = s:Dir(cmd[i])
       endif
       if has_key(cmd[i], 'git')
-        let git = cmd[i].jj
+        let git = cmd[i].git
       endif
       if has_key(cmd[i], 'env')
         call extend(env, cmd[i].env)
@@ -3962,6 +3962,24 @@ function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
       return 'exe ' . string('noautocmd !' . escape(cmd, '!#%')) . after
     endif
   endif
+endfunction
+
+function! fujjitive#GitCommand(line1, line2, range, bang, mods, arg, ...) abort
+  return fujjitive#Command(a:line1, a:line2, a:range, a:bang, a:mods, 'git ' . a:arg)
+endfunction
+
+let s:jj_git_subcommands = [
+      \ 'clone', 'export', 'fetch', 'import', 'init', 'push', 'remote',
+      \ 'submodule',
+      \ ]
+
+function! fujjitive#GitComplete(lead, ...) abort
+  let pre = a:0 > 1 ? strpart(a:1, 0, a:2) : ''
+  let subcmd = matchstr(pre, '\u\w*[! ] *\zs[[:alnum:]][[:alnum:]-]*\ze ')
+  if empty(subcmd)
+    return filter(copy(s:jj_git_subcommands), 'strpart(v:val, 0, strlen(a:lead)) ==# a:lead')
+  endif
+  return a:0 >= 3 ? fujjitive#Complete(a:lead, a:1, a:2, a:3) : []
 endfunction
 
 let s:exec_paths = {}
