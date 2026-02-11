@@ -142,20 +142,8 @@ jobs:
             -c 'help fujjitive' \
             -c 'if expand("%:t") ==# "fujjitive.txt" | qall | else | cquit 1 | endif'
 
-      - name: Verify :J log opens pager buffer with log output
+      - name: Run test suite
         env:
           JJ_USER: Test User
           JJ_EMAIL: test@example.com
-        run: |
-          tmpdir=$(mktemp -d)
-          cd "$tmpdir"
-          jj git init
-          echo "test content" > file.txt
-          jj describe -m "test: initial commit"
-
-          nvim --headless -u NONE -N \
-            --cmd 'set rtp^=${{ github.workspace }}' \
-            --cmd 'runtime plugin/fujjitive.vim' \
-            -c 'edit file.txt' \
-            -c 'J log' \
-            -c 'if &filetype ==# "git" && line("$") > 1 | qall | else | cquit 1 | endif'
+        run: bash test/run_tests.sh
