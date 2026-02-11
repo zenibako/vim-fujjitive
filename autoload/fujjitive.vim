@@ -5525,7 +5525,7 @@ function! s:ToolStream(line1, line2, range, bang, mods, options, args, state) ab
   let a:state.from = ''
   let a:state.to = ''
   let exec = s:UserCommandList({'git': a:options.git, 'jj_dir': a:options.jj_dir})
-  let exec += a:options.flags + ['--no-pager', 'diff', '--no-ext-diff', '--no-color', '--no-prefix'] + argv
+  let exec += a:options.flags + ['diff', '--no-ext-diff', '--no-color', '--no-prefix'] + argv
   if prompt
     let title = ':JJ ' . s:fnameescape(a:options.flags + [a:options.subcommand] + a:options.subcommand_args)
     return s:QuickfixStream(get(a:options, 'curwin') && a:line2 < 0 ? 0 : a:line2, 'difftool', title, exec, !a:bang, a:mods, s:function('s:ToolParse'), a:state)
@@ -6929,7 +6929,7 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
   endif
   exe s:BlameLeave()
   try
-    let cmd = a:options.flags + ['--no-pager', '-c', 'blame.coloring=none', '-c', 'blame.blankBoundary=false', a:options.subcommand, '--show-number']
+    let cmd = a:options.flags + ['-c', 'blame.coloring=none', '-c', 'blame.blankBoundary=false', a:options.subcommand, '--show-number']
     call extend(cmd, filter(copy(flags), 'v:val !~# "\\v^%(-b|--%(no-)=color-.*|--progress)$"'))
     if a:count > 0 && empty(ranges)
       let cmd += ['-L', (a:line1 ? a:line1 : line('.')) . ',' . (a:line1 ? a:line1 : line('.'))]
