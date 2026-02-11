@@ -2582,7 +2582,23 @@ function! s:ReplaceCmd(cmd) abort
 endfunction
 
 function! s:FormatLog(dict) abort
-  return a:dict.commit . ' ' . a:dict.subject
+  let parts = [a:dict.commit]
+  if !empty(get(a:dict, 'bookmarks', ''))
+    call add(parts, a:dict.bookmarks)
+  endif
+  if get(a:dict, 'empty', 0)
+    call add(parts, '(empty)')
+  endif
+  if get(a:dict, 'conflict', 0)
+    call add(parts, '(conflict)')
+  endif
+  let subject = get(a:dict, 'subject', '')
+  if empty(subject)
+    call add(parts, '(no description set)')
+  else
+    call add(parts, subject)
+  endif
+  return join(parts, ' ')
 endfunction
 
 function! s:FormatRebase(dict) abort
@@ -2618,14 +2634,17 @@ function! s:AddSection(to, label, lines, ...) abort
   call extend(a:to.lines, ['', a:label . (len(note) ? ': ' . note : ' (' . len(a:lines) . ')')] + s:Format(a:lines))
 endfunction
 
-function! s:AddDiffSection(to, stat, label, files) abort
+function! s:AddDiffSection(to, stat, label, files, ...) abort
   if empty(a:files)
     return
   endif
+  " Optional 5th arg overrides the display label while keeping a:label as
+  " the internal section key for diff expansion and file lookup.
+  let display_label = a:0 ? a:1 : a:label
   let diff_section = a:stat.diff[a:label]
   let expanded = a:stat.expanded[a:label]
   let was_expanded = get(getbufvar(a:stat.bufnr, 'fujjitive_expanded', {}), a:label, {})
-  call extend(a:to.lines, ['', a:label . ' (' . len(a:files) . ')'])
+  call extend(a:to.lines, ['', display_label . ' (' . len(a:files) . ')'])
   for file in a:files
     call add(a:to.lines, s:Format(file))
     if has_key(was_expanded, file.filename)
@@ -2638,10 +2657,24 @@ function! s:AddDiffSection(to, stat, label, files) abort
   endfor
 endfunction
 
-function! s:QueryLog(refspec, limit, dir) abort
-  let [log, exec_error] = s:LinesError(['log', '-n', '' . a:limit, '--pretty=format:%h%x09%s'] + a:refspec + ['--'], a:dir)
+function! s:QueryLog(revset, limit, dir) abort
+  let template = 'change_id.short(8) ++ "\t" ++ commit_id.short(8) ++ "\t"'
+        \ . ' ++ bookmarks ++ "\t" ++ if(empty, "empty", "") ++ "\t"'
+        \ . ' ++ if(conflict, "conflict", "") ++ "\t"'
+        \ . ' ++ description.first_line() ++ "\n"'
+  let [log, exec_error] = s:LinesError(
+        \ ['log', '--no-graph', '-r', a:revset, '--limit', '' . a:limit,
+        \  '-T', template], a:dir)
+  call filter(log, '!empty(v:val)')
   call map(log, 'split(v:val, "\t", 1)')
-  call map(log, '{"type": "Log", "commit": v:val[0], "subject": join(v:val[1 : -1], "\t")}')
+  call map(log, '{"type": "Log",'
+        \ . ' "commit": v:val[0],'
+        \ . ' "change_id": v:val[0],'
+        \ . ' "commit_id": get(v:val, 1, ""),'
+        \ . ' "bookmarks": get(v:val, 2, ""),'
+        \ . ' "empty": get(v:val, 3, "") ==# "empty",'
+        \ . ' "conflict": get(v:val, 4, "") ==# "conflict",'
+        \ . ' "subject": get(v:val, 5, "")}')
   let result = {'error': exec_error ? 1 : 0, 'overflow': 0, 'entries': log}
   if len(log) == a:limit
     call remove(log, -1)
@@ -2650,11 +2683,11 @@ function! s:QueryLog(refspec, limit, dir) abort
   return result
 endfunction
 
-function! s:QueryLogRange(old, new, dir) abort
-  if empty(a:old) || empty(a:new)
+function! s:QueryLogRange(revset, dir) abort
+  if empty(a:revset)
     return {'error': 2, 'overflow': 0, 'entries': []}
   endif
-  return s:QueryLog([a:old . '..' . a:new], 256, a:dir)
+  return s:QueryLog(a:revset, 256, a:dir)
 endfunction
 
 function! s:AddLogSection(to, label, log) abort
@@ -2691,8 +2724,9 @@ function! s:MapStatus() abort
   call s:Map('x', 'u', ":<C-U>execute <SID>Do('Squash',1)<CR>", '<silent>')
   " U = restore all changes (discard working copy changes)
   call s:Map('n', 'U', ":<C-U>JJ restore<CR>", '<silent>')
-  call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Unstaged')")
-  call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Unstaged', 'Untracked')")
+  call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Working copy changes')")
+  call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Working copy changes', 'Untracked')")
+  call s:MapMotion('gm', "exe <SID>StageJump(v:count, 'Mutable')")
   call s:MapMotion('gp', "exe <SID>StageJump(v:count, 'Unpushed')")
   call s:MapMotion('gP', "exe <SID>StageJump(v:count, 'Unpulled')")
   call s:Map('n', 'C', ":echoerr 'fujjitive: C has been removed in favor of cc'<CR>", '<silent><unique>')
@@ -2864,7 +2898,15 @@ function! s:StatusRender(stat) abort
     call s:AddHeader(to, 'Help', 'g?')
 
     call s:AddSection(to, 'Untracked', untracked)
-    call s:AddDiffSection(to, stat, 'Unstaged', unstaged)
+    " NOTE: The 'Unstaged' key is kept as the internal section identifier for
+    " compatibility with existing diff expansion, file lookup, and keybinding
+    " code. The display label 'Working copy changes' is shown to the user.
+    " A full rename of the internal key is deferred to a future phase.
+    call s:AddDiffSection(to, stat, 'Unstaged', unstaged, 'Working copy changes')
+
+    call s:AddLogSection(to, 'Mutable', stat.mutable_log)
+    call s:AddLogSection(to, 'Unpushed', stat.unpushed_log)
+    call s:AddLogSection(to, 'Unpulled', stat.unpulled_log)
 
     let bufnr = stat.bufnr
     setlocal noreadonly modifiable
@@ -2895,11 +2937,20 @@ function! s:StatusRetrieve(bufnr, ...) abort
     let stat.rev_parse = call('fujjitive#Execute', [rev_parse_cmd, function('s:StatusProcess'), stat] + a:000)
     let stat.status = {}
     let stat.running = stat.rev_parse
+    let empty_log = {'error': 0, 'overflow': 0, 'entries': []}
+    let stat.mutable_log = empty_log
+    let stat.unpushed_log = empty_log
+    let stat.unpulled_log = empty_log
   else
     let stat.rev_parse = fujjitive#Execute(rev_parse_cmd)
     let status_cmd = cmd + ['status']
     let stat.status = call('fujjitive#Execute', [status_cmd, function('s:StatusProcess'), stat] + a:000)
     let stat.running = stat.status
+
+    " Fetch commit log sections for the summary buffer
+    let stat.mutable_log = s:QueryLog('mutable()', 50, dir)
+    let stat.unpushed_log = s:QueryLog('remote_bookmarks()..bookmarks()', 256, dir)
+    let stat.unpulled_log = s:QueryLog('bookmarks()..remote_bookmarks()', 256, dir)
   endif
   return stat
 endfunction

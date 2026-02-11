@@ -29,7 +29,8 @@ syn match fujjitiveHash /\S\@<!\x\{4,\}\S\@!/ contained
 
 syn region fujjitiveHunk start=/^\%(@@\+ -\)\@=/ end=/^\%([A-Za-z?@]\|$\)\@=/ contains=diffLine,diffRemoved,diffAdded,diffNoEOL containedin=@fujjitiveSection fold
 
-for s:section in ['Untracked', 'Unstaged']
+" Sections with simple single-word names
+for s:section in ['Untracked', 'Mutable', 'Unpushed', 'Unpulled']
   exe 'syn region fujjitive' . s:section . 'Section start=/^\%(' . s:section . ' .*(\d\++\=)$\)\@=/ contains=fujjitive' . s:section . 'Heading end=/^$/ fold'
   exe 'syn match fujjitive' . s:section . 'Modifier /^[MADRCU?] / contained containedin=fujjitive' . s:section . 'Section'
   exe 'syn cluster fujjitiveSection add=fujjitive' . s:section . 'Section'
@@ -37,19 +38,34 @@ for s:section in ['Untracked', 'Unstaged']
 endfor
 unlet s:section
 
+" 'Working copy changes' section (display label for the internal 'Unstaged' key)
+syn region fujjitiveWorkingCopySection start=/^\%(Working copy changes .*(\d\++\=)$\)\@=/ contains=fujjitiveWorkingCopyHeading end=/^$/ fold
+syn match fujjitiveWorkingCopyModifier /^[MADRCU?] / contained containedin=fujjitiveWorkingCopySection
+syn cluster fujjitiveSection add=fujjitiveWorkingCopySection
+syn match fujjitiveWorkingCopyHeading /^Working copy changes\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
+
+" Markers for jj-specific commit metadata in log sections
+syn match fujjitiveEmpty /(empty)/ contained containedin=@fujjitiveSection
+syn match fujjitiveConflict /(conflict)/ contained containedin=@fujjitiveSection
+
 hi def link fujjitiveHelpHeader fujjitiveHeader
 hi def link fujjitiveHeader Label
 hi def link fujjitiveHelpTag Tag
 hi def link fujjitiveHeading PreProc
 hi def link fujjitiveUntrackedHeading PreCondit
-hi def link fujjitiveUnstagedHeading Macro
+hi def link fujjitiveWorkingCopyHeading Macro
+hi def link fujjitiveMutableHeading PreProc
+hi def link fujjitiveUnpushedHeading PreProc
+hi def link fujjitiveUnpulledHeading PreProc
 hi def link fujjitiveModifier Type
 hi def link fujjitiveUntrackedModifier StorageClass
-hi def link fujjitiveUnstagedModifier Structure
+hi def link fujjitiveWorkingCopyModifier Structure
 hi def link fujjitiveInstruction Type
 hi def link fujjitiveStop Function
 hi def link fujjitiveHash Identifier
 hi def link fujjitiveSymbolicRef Function
 hi def link fujjitiveCount Number
+hi def link fujjitiveEmpty Comment
+hi def link fujjitiveConflict WarningMsg
 
 let b:current_syntax = "fujjitive"
