@@ -6957,7 +6957,7 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
   endif
   exe s:BlameLeave()
   try
-    let cmd = a:options.flags + [a:options.subcommand, '--show-number']
+    let cmd = a:options.flags + ['file', 'annotate', '--show-number']
     call extend(cmd, filter(copy(flags), 'v:val !~# "\\v^%(-b|--%(no-)=color-.*|--progress)$"'))
     if a:count > 0 && empty(ranges)
       let cmd += ['-L', (a:line1 ? a:line1 : line('.')) . ',' . (a:line1 ? a:line1 : line('.'))]
@@ -7010,7 +7010,7 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
       let temp_state = {
             \ 'git': a:options.git,
             \ 'flags': a:options.flags,
-            \ 'args': [a:options.subcommand] + a:options.subcommand_args,
+            \ 'args': ['file', 'annotate'] + a:options.subcommand_args,
             \ 'jj_dir': s:JJDir(a:options),
             \ 'cwd': s:UserCommandCwd(a:options),
             \ 'filetype': (raw ? 'git' : 'fujjitiveblame'),
