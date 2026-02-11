@@ -2887,7 +2887,12 @@ function! s:StatusRender(stat) abort
     let stat = a:stat
     call fujjitive#Wait(stat.running)
     if has_key(stat, 'error')
-      return 'echoerr ' . string('fujjitive: ' . stat.error)
+      let bufnr = stat.bufnr
+      setlocal modifiable noreadonly
+      silent keepjumps 1,$delete_
+      call setline(1, ['Error: ' . stat.error])
+      setlocal nomodified readonly nomodifiable
+      return ''
     endif
     let [unstaged, untracked, config] = [stat.unstaged, stat.untracked, stat.config]
     let dir = s:Dir(config)
