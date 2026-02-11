@@ -6957,34 +6957,28 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
   endif
   exe s:BlameLeave()
   try
-    let cmd = a:options.flags + ['file', 'annotate', '--show-number']
-    call extend(cmd, filter(copy(flags), 'v:val !~# "\\v^%(-b|--%(no-)=color-.*|--progress)$"'))
-    if a:count > 0 && empty(ranges)
-      let cmd += ['-L', (a:line1 ? a:line1 : line('.')) . ',' . (a:line1 ? a:line1 : line('.'))]
-    endif
-    call extend(cmd, ranges)
-    let tempname = tempname()
-    let temp = tempname . (raw ? '' : '.fujjitiveblame')
+    let blame_template = 'self.commit().change_id().normal_hex().substr(0, 12)'
+          \ . ' ++ " " ++ pad_start(4, self.line_number())'
+          \ . ' ++ " (" ++ pad_end(20, self.commit().author().name())'
+          \ . ' ++ " " ++ self.commit().author().timestamp().format("%Y-%m-%d %H:%M:%S %z")'
+          \ . ' ++ " " ++ pad_start(4, self.line_number())'
+          \ . ' ++ ") " ++ self.content()'
+    let cmd = a:options.flags + ['file', 'annotate', '-T', blame_template]
     if len(commits)
-      let cmd += commits
+      let cmd += ['-r', commits[0]]
     elseif empty(files) && len(matchstr(s:DirCommitFile(@%)[1], '^\x\x\+$'))
-      let cmd += [matchstr(s:DirCommitFile(@%)[1], '^\x\x\+$')]
-    elseif empty(files) && !s:HasOpt(flags, '--reverse')
-      if &modified || !empty(s:DirCommitFile(@%)[1])
-        let cmd += ['--contents', tempname . '.in']
-        silent execute 'noautocmd keepalt %write ' . s:fnameescape(tempname . '.in')
-        let delete_in = 1
-      elseif &autoread
+      let cmd += ['-r', matchstr(s:DirCommitFile(@%)[1], '^\x\x\+$')]
+    elseif empty(files)
+      if &autoread
         exe 'checktime ' . bufnr('')
       endif
     else
       call fujjitive#Autowrite()
     endif
+    let tempname = tempname()
+    let temp = tempname . (raw ? '' : '.fujjitiveblame')
     let basecmd = [{'git': a:options.git}, dir, ''] + cmd + ['--'] + (len(files) ? files : [file])
     let [err, exec_error] = s:StdoutToFile(temp, basecmd)
-    if exists('delete_in')
-      call delete(tempname . '.in')
-    endif
     redraw
     try
       if exec_error
