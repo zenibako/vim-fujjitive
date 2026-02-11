@@ -5023,6 +5023,27 @@ function! s:StageApply(info, reverse, extra) abort
 endfunction
 
 function! s:StageDelete(lnum1, lnum2, count) abort
+  " Handle log sections: X on a heading or commit entry runs jj abandon.
+  " The command is placed on the command line via feedkeys so the user must
+  " press Enter to confirm (acts as an "are you sure?" prompt).
+  let heading_line = getline(a:lnum1)
+  let abandon_revsets = {
+        \ 'Current': '::@ & mutable()',
+        \ 'Other': 'mutable() ~ ::@'}
+  let log_heading = matchstr(heading_line, '^\u\l\+\ze.\{-\} (\d\++\=)$')
+  if has_key(abandon_revsets, log_heading)
+    call feedkeys(':JJ abandon "' . abandon_revsets[log_heading] . '"')
+    return ''
+  endif
+  let selection = s:Selection(a:lnum1, a:lnum2)
+  if !empty(selection) && has_key(abandon_revsets, get(selection[0], 'section', ''))
+    let commits = map(filter(copy(selection), 'len(v:val.commit)'), 'v:val.commit')
+    if !empty(commits)
+      call feedkeys(':JJ abandon ' . join(commits, ' '))
+    endif
+    return ''
+  endif
+
   let restore = []
 
   let err = ''
