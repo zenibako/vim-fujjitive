@@ -80,7 +80,7 @@ support.
 
 ```lua
 {
-  "your-username/vim-fujjitive",
+  "zenibako/vim-fujjitive",
 }
 ```
 
@@ -88,7 +88,7 @@ support.
 
     mkdir -p ~/.vim/pack/tpope/start
     cd ~/.vim/pack/tpope/start
-    git clone https://github.com/your-username/vim-fujjitive.git
+    git clone https://github.com/zenibako/vim-fujjitive.git
     vim -u NONE -c "helptags fujjitive/doc" -c q
 
 ## Configuration
