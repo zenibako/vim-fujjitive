@@ -96,8 +96,11 @@ jobs:
 
       - name: Install Jujutsu (jj)
         run: |
+          tmpdir=$(mktemp -d)
           curl -LsSf https://github.com/jj-vcs/jj/releases/download/v0.38.0/jj-v0.38.0-x86_64-unknown-linux-musl.tar.gz \
-            | tar xz -C /usr/local/bin
+            | tar xz -C "$tmpdir"
+          sudo install "$tmpdir/jj" /usr/local/bin/jj
+          rm -rf "$tmpdir"
           jj version
 
       - name: Verify plugin loads without errors
