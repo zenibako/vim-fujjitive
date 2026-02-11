@@ -311,17 +311,18 @@ u                       Squash the file or hunk under the cursor back into the
                         parent change (using `jj squash`).
 
                                                 *fujjitive_-*
--                       Toggle split or squash for the file or hunk under the
-                        cursor.
+-                       In the "Working copy changes" section, split the file
+                        under the cursor into a new change.  In log sections,
+                        context-dependent action (push, rebase, etc.).
 
                                                 *fujjitive_U*
 U                       Restore all working copy changes (using `jj restore`).
 
                                                 *fujjitive_X*
-X                       Discard the change under the cursor.  This uses
-                        `jj restore` under the hood.  A command is echoed that
-                        shows how to undo the change.  Consult `:messages` to
-                        see it again.
+X                       Discard the change under the cursor.  For files in
+                        the working copy, this restores from the parent using
+                        `jj restore`.  For commits, this runs `jj abandon`.
+                        Use `jj undo` to reverse the operation.
 
                                                 *fujjitive_=*
 =                       Toggle an inline diff of the file under the cursor.
@@ -341,8 +342,8 @@ S                       Invoke interactive split (|:JJ| split --interactive)
                         on the file under the cursor.
 
                                                 *fujjitive_I*
-I                       Invoke interactive split with intent-to-add on the
-                        file under the cursor.
+I                       Invoke interactive split (|:JJ| split --interactive)
+                        on the file under the cursor.  Like |fujjitive_S|.
 
                                                 *fujjitive_d*
 Diff maps ~
@@ -511,31 +512,29 @@ ce                      Squash changes into the parent change without editing
 
 cw                      Describe the current change (using `jj describe`).
 
-cW                      Create a `fixup!` commit that rewords the commit
-                        under the cursor.
+cW                      Describe (reword) the commit under the cursor
+                        (using `jj describe`).
 
-cf                      Create a `fixup!` commit for the commit under the
-                        cursor.
+cf                      Not available.  JJ does not have fixup commits.
+                        Use |:JJ| squash to squash changes directly.
 
-cF                      Create a `fixup!` commit for the commit under the
-                        cursor and immediately rebase it.
+cF                      Not available.  See |cf|.
 
-cs                      Create a `squash!` commit for the commit under the
-                        cursor.
+cs                      Not available.  JJ does not have squash! commits.
+                        Use |:JJ| squash to squash changes directly.
 
-cS                      Create a `squash!` commit for the commit under the
-                        cursor and immediately rebase it.
+cS                      Not available.  See |cs|.
 
-cn                      Create a `squash!` commit for the commit under the
-(formerly cA)           cursor and edit the message.
+cn                      Not available.  See |cs|.
 
 c<Space>                Populate command line with ":JJ commit ".
 
                                                 *fujjitive_cr*
-crc                     Revert the commit under the cursor.
+crc                     Back out the commit under the cursor (using
+                        `jj backout`).
 
-crn                     Revert the commit under the cursor in the index and
-                        work tree, but do not actually commit the changes.
+crn                     Back out the commit under the cursor (using
+                        `jj backout`).
 
 cr<Space>               Populate command line with ":JJ backout ".
 
@@ -550,7 +549,7 @@ c?                      Show this help.
                                                 *fujjitive_co*
 Checkout/bookmark maps ~
 
-coo                     Check out the commit under the cursor.
+coo                     Edit the commit under the cursor (using `jj edit`).
 
 cb<Space>               Populate command line with ":JJ bookmark ".
 
@@ -560,27 +559,11 @@ cb?                     Show this help.
 co?
 
                                                 *fujjitive_cz*
-Stash maps ~
+Stash maps (unavailable) ~
 
-czz                     Push stash.  Pass a [count] of 1 to add
-                        `--include-untracked` or 2 to add `--all`.
-
-czw                     Push stash of the work-tree.  Like `czz` with
-                        `--keep-index`.
-
-czs                     Push stash of the stage.  Does not accept a count.
-
-czA                     Apply topmost stash, or stash@{count}.
-
-cza                     Apply topmost stash, or stash@{count}, preserving the
-                        index.
-
-czP                     Pop topmost stash, or stash@{count}.
-
-czp                     Pop topmost stash, or stash@{count}, preserving the
-                        index.
-
-czv                     View the topmost stash, or stash@{count}.
+JJ does not have a stash feature.  Use `jj new` to create a new empty
+change and shelve your current work, or simply work on multiple changes
+simultaneously using JJ's native workflow.
 
 cz<Space>               Populate command line with ":JJ new ".
 
@@ -589,39 +572,22 @@ cz?                     Show this help.
                                                 *fujjitive_r*
 Rebase maps ~
 
-ri                      Perform an interactive rebase.  Uses ancestor of
-                        commit under cursor as upstream if available.
+rw                      Describe (reword) the commit under the cursor
+                        (using `jj describe`).
 
-rf                      Perform an autosquash rebase without editing the todo
-                        list.  Uses ancestor of commit under cursor as
-                        upstream if available.
+rm                      Edit the commit under the cursor (using `jj edit`).
 
-ru                      Perform an interactive rebase against @{upstream}.
-
-rp                      Perform an interactive rebase against @{push}.
-
-rr                      Continue the current rebase.
-
-rs                      Skip the current commit and continue the current
-                        rebase.
-
-ra                      Abort the current rebase.
-
-re                      Edit the current rebase todo list.
-
-rw                      Perform an interactive rebase with the commit under
-                        the cursor set to `reword`.
-
-rm                      Perform an interactive rebase with the commit under
-                        the cursor set to `edit`.
-
-rd                      Perform an interactive rebase with the commit under
-rk                      the cursor set to `drop`.
+rd                      Abandon the commit under the cursor (using
+rk                      `jj abandon`).
 rx
 
 r<Space>                Populate command line with ":JJ rebase ".
 
 r?                      Show this help.
+
+NOTE: JJ does not have Git-style interactive rebase.  The ri, rf, ru, rp,
+rr, rs, re, and ra maps are disabled with an explanatory message.
+Rebasing in JJ is done with `:JJ rebase -r REV -d DEST`.
 
                                                 *fujjitive-misc-maps*
 Miscellaneous maps ~

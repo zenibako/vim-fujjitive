@@ -4928,26 +4928,16 @@ function! s:StageDiff(diff) abort
   let info = s:StageInfo(lnum)
   let prefix = info.offset > 0 ? '+' . info.offset : ''
   if info.submodule =~# '^S'
-    if info.section ==# 'Staged'
-      return 'Git --paginate diff --no-ext-diff --submodule=log --cached -- ' . info.paths[0]
-    elseif info.submodule =~# '^SC'
-      return 'Git --paginate diff --no-ext-diff --submodule=log -- ' . info.paths[0]
+    if info.submodule =~# '^SC'
+      return 'JJ --paginate diff --no-ext-diff --submodule=log -- ' . info.paths[0]
     else
-      return 'Git --paginate diff --no-ext-diff --submodule=diff -- ' . info.paths[0]
+      return 'JJ --paginate diff --no-ext-diff --submodule=diff -- ' . info.paths[0]
     endif
-  elseif empty(info.paths) && info.section ==# 'Staged'
-    return 'Git --paginate diff --no-ext-diff --cached'
   elseif empty(info.paths)
-    return 'Git --paginate diff --no-ext-diff'
+    return 'JJ --paginate diff --no-ext-diff'
   elseif len(info.paths) > 1
     execute 'Gedit' . prefix s:fnameescape(':0:' . info.paths[0])
     return 'keepalt ' . a:diff . '! @:'.s:fnameescape(info.paths[1])
-  elseif info.section ==# 'Staged' && info.sigil ==# '-'
-    execute 'Gedit' prefix s:fnameescape(':0:'.info.paths[0])
-    return 'keepalt ' . a:diff . '! :0:%'
-  elseif info.section ==# 'Staged'
-    execute 'Gedit' prefix s:fnameescape(':0:'.info.paths[0])
-    return 'keepalt ' . a:diff . '! @:%'
   elseif info.sigil ==# '-'
     execute 'Gedit' prefix s:fnameescape(':0:'.info.paths[0])
     return 'keepalt ' . a:diff . '! :(top)%'
@@ -4960,14 +4950,7 @@ endfunction
 function! s:StageDiffEdit() abort
   let info = s:StageInfo(line('.'))
   let arg = (empty(info.paths) ? s:Tree() : info.paths[0])
-  if info.section ==# 'Staged'
-    return 'Git --paginate diff --no-ext-diff --cached '.s:fnameescape(arg)
-  elseif info.status ==# '?'
-    call s:TreeChomp('add', '--intent-to-add', '--', arg)
-    return s:ReloadStatus()
-  else
-    return 'Git --paginate diff --no-ext-diff '.s:fnameescape(arg)
-  endif
+  return 'JJ --paginate diff --no-ext-diff '.s:fnameescape(arg)
 endfunction
 
 function! s:StageApply(info, reverse, extra) abort
@@ -5049,10 +5032,9 @@ function! s:StageDelete(lnum1, lnum2, count) abort
     return ''
   endif
 
-  let restore = []
+  let did_restore = 0
 
   let err = ''
-  let did_conflict_err = 0
   let reset_commit = matchstr(getline(a:lnum1), '^Un\w\+ \%(to\| from\) \zs\S\+')
   try
     for info in s:Selection(a:lnum1, a:lnum2)
@@ -5062,69 +5044,24 @@ function! s:StageDelete(lnum1, lnum2, count) abort
         endif
         continue
       endif
-      let sub = get(s:StatusSectionFile(info.section, info.filename), 'submodule', '')
-      if sub =~# '^S' && info.status ==# 'M'
-        let undo = 'Git checkout ' . fujjitive#RevParse('HEAD', FujjitiveExtractJJDir(info.paths[0]))[0:10] . ' --'
-      elseif sub =~# '^S'
-        let err .= '|echoerr ' . string('fujjitive: will not touch submodule ' . string(info.relative[0]))
-        break
-      elseif info.status ==# 'D'
-        let undo = 'GRemove'
-      elseif info.paths[0] =~# '/$'
+      if info.paths[0] =~# '/$'
         let err .= '|echoerr ' . string('fujjitive: will not delete directory ' . string(info.relative[0]))
         break
-      else
-        let undo = 'Gread ' . s:TreeChomp('hash-object', '-w', '--', info.paths[0])[0:10]
       endif
       if info.patch
-        call s:StageApply(info, 1, info.section ==# 'Staged' ? ['--index'] : [])
-      elseif sub =~# '^S'
-        if info.section ==# 'Staged'
-          call s:TreeChomp('reset', '--', info.paths[0])
-        endif
-        call s:TreeChomp('submodule', 'update', '--', info.paths[0])
+        call s:StageApply(info, 1, [])
       elseif info.status ==# '?'
-        call s:TreeChomp('clean', '-f', '--', info.paths[0])
-      elseif a:count == 2
-        if get(s:StatusSectionFile('Staged', info.filename), 'status', '') ==# 'D'
-          call delete(info.paths[0])
-        else
-          call s:TreeChomp('checkout', '--ours', '--', info.paths[0])
-        endif
-      elseif a:count == 3
-        if get(s:StatusSectionFile('Unstaged', info.filename), 'status', '') ==# 'D'
-          call delete(info.paths[0])
-        else
-          call s:TreeChomp('checkout', '--theirs', '--', info.paths[0])
-        endif
-      elseif info.status =~# '[ADU]' &&
-            \ get(s:StatusSectionFile(info.section ==# 'Staged' ? 'Unstaged' : 'Staged', info.filename), 'status', '') =~# '[AU]'
-        if get(g:, 'fugitive_conflict_x', 0)
-          call s:TreeChomp('checkout', info.section ==# 'Unstaged' ? '--ours' : '--theirs', '--', info.paths[0])
-        else
-          if !did_conflict_err
-            let err .= '|echoerr "Use 2X for --ours or 3X for --theirs"'
-            let did_conflict_err = 1
-          endif
-          continue
-        endif
-      elseif info.status ==# 'U'
         call delete(info.paths[0])
-      elseif info.status ==# 'A'
-        call s:TreeChomp('rm', '-f', '--', info.paths[0])
-      elseif info.section ==# 'Unstaged'
-        call s:TreeChomp('checkout', '--', info.paths[0])
       else
-        call s:TreeChomp('checkout', '@', '--', info.paths[0])
+        " Restore from parent to discard working copy changes
+        call s:TreeChomp(['restore', '--from', '@-', '--'] + info.paths)
       endif
-      if len(undo)
-        call add(restore, ':Gsplit ' . s:fnameescape(info.relative[0]) . '|' . undo)
-      endif
+      let did_restore = 1
     endfor
   catch /^fujjitive:/
     let err .= '|echoerr ' . string(v:exception)
   endtry
-  if empty(restore)
+  if !did_restore
     if len(reset_commit) && empty(err)
       call feedkeys(':JJ reset ' . reset_commit)
     endif
@@ -5132,7 +5069,7 @@ function! s:StageDelete(lnum1, lnum2, count) abort
   endif
   exe s:ReloadStatus()
   call s:StageReveal()
-  return 'checktime|redraw|echomsg ' . string('To restore, ' . join(restore, '|')) . err
+  return 'checktime|redraw|echomsg ' . string('To undo, run: jj undo') . err
 endfunction
 
 function! s:StageIgnore(lnum1, lnum2, count) abort
@@ -5232,94 +5169,91 @@ function! s:DoUnstageUnpushed(record) abort
   call feedkeys(':JJ -c sequence.editor=true rebase --interactive --autosquash ' . a:record.commit . '^')
 endfunction
 
+" Toggle (-): context-dependent split.  In the working copy sections this
+" splits the file into a new change; in log sections the existing Toggle
+" handlers for Unpushed/Unpulled take over.
 function! s:DoToggleStagedHeading(...) abort
-  call s:TreeChomp('reset', '-q')
-  return 1
-endfunction
-
-function! s:DoUnstageStagedHeading(heading) abort
-  return s:DoToggleStagedHeading(a:heading)
+  " JJ has no staging area; no-op
+  return -1
 endfunction
 
 function! s:DoToggleUnstagedHeading(...) abort
-  call s:TreeChomp('add', '-u')
+  call s:TreeChomp('split')
   return 1
-endfunction
-
-function! s:DoStageUnstagedHeading(heading) abort
-  return s:DoToggleUnstagedHeading(a:heading)
 endfunction
 
 function! s:DoToggleUntrackedHeading(...) abort
-  call s:TreeChomp('add', '.')
+  call s:TreeChomp('split')
   return 1
-endfunction
-
-function! s:DoStageUntrackedHeading(heading) abort
-  return s:DoToggleUntrackedHeading(a:heading)
 endfunction
 
 function! s:DoToggleStaged(record) abort
-  if a:record.patch
-    return s:StageApply(a:record, 1, ['--cached'])
-  else
-    call s:TreeChomp(['reset', '-q', '--'] + a:record.paths)
-    return 1
-  endif
-endfunction
-
-function! s:DoUnstageStaged(record) abort
-  return s:DoToggleStaged(a:record)
+  " JJ has no staging area; no-op
+  return -1
 endfunction
 
 function! s:DoToggleUnstaged(record) abort
-  if a:record.patch
-    return s:StageApply(a:record, 0, ['--cached'])
-  else
-    call s:TreeChomp(['add', '-A', '--'] + a:record.paths)
-    return 1
-  endif
-endfunction
-
-function! s:DoStageUnstaged(record) abort
-  return s:DoToggleUnstaged(a:record)
-endfunction
-
-function! s:DoUnstageUnstaged(record) abort
-  if a:record.status ==# 'A'
-    call s:TreeChomp(['reset', '-q', '--'] + a:record.paths)
-    return 1
-  else
-    return -1
-  endif
-endfunction
-
-function! s:DoToggleUntracked(record) abort
-  call s:TreeChomp(['add', '--'] + a:record.paths)
+  call s:TreeChomp(['split', '--'] + a:record.paths)
   return 1
 endfunction
 
-function! s:DoStageUntracked(record) abort
-  return s:DoToggleUntracked(a:record)
+function! s:DoToggleUntracked(record) abort
+  call s:TreeChomp(['split', '--'] + a:record.paths)
+  return 1
+endfunction
+
+" Split (s): move file(s) from working copy into a new child change using
+" jj split.  Opens the editor for the new change description.
+function! s:DoSplitUnstagedHeading(...) abort
+  call s:TreeChomp('split')
+  return 1
+endfunction
+
+function! s:DoSplitUnstaged(record) abort
+  call s:TreeChomp(['split', '--'] + a:record.paths)
+  return 1
+endfunction
+
+function! s:DoSplitUntrackedHeading(...) abort
+  call s:TreeChomp('split')
+  return 1
+endfunction
+
+function! s:DoSplitUntracked(record) abort
+  call s:TreeChomp(['split', '--'] + a:record.paths)
+  return 1
+endfunction
+
+" Squash (u): move file(s) back into the parent change using jj squash.
+function! s:DoSquashUnstagedHeading(...) abort
+  call s:TreeChomp('squash')
+  return 1
+endfunction
+
+function! s:DoSquashUnstaged(record) abort
+  call s:TreeChomp(['squash', '--'] + a:record.paths)
+  return 1
+endfunction
+
+function! s:DoSquashUntrackedHeading(...) abort
+  call s:TreeChomp('squash')
+  return 1
+endfunction
+
+function! s:DoSquashUntracked(record) abort
+  call s:TreeChomp(['squash', '--'] + a:record.paths)
+  return 1
 endfunction
 
 function! s:StagePatch(lnum1, lnum2, ...) abort
-  let add = []
-  let reset = []
-  let intend = []
+  let paths = []
   let patch_only = a:0 && a:1
 
-  for lnum in range(a:lnum1,a:lnum2)
+  for lnum in range(a:lnum1, a:lnum2)
     let info = s:StageInfo(lnum)
-    if empty(info.paths) && info.section ==# 'Staged'
-      execute 'tab Git reset --patch'
-      break
-    elseif empty(info.paths) && info.section ==# 'Unstaged'
-      execute 'tab Git add --patch'
-      break
-    elseif empty(info.paths) && info.section ==# 'Untracked'
-      execute 'tab Git add --interactive'
-      break
+    if empty(info.paths) && (info.section ==# 'Unstaged' || info.section ==# 'Untracked')
+      execute 'tab JJ split --interactive'
+      return s:ReloadStatus()
     elseif !patch_only && info.section ==# 'Unpushed'
       if empty(info.commit)
         call s:DoStageUnpushedHeading(info)
@@ -5331,23 +5265,13 @@ function! s:StagePatch(lnum1, lnum2, ...) abort
       continue
     endif
     execute lnum
-    if info.section ==# 'Staged'
-      let reset += info.relative
-    elseif info.section ==# 'Untracked'
-      let intend += info.paths
-    elseif info.status !~# '^D'
-      let add += info.relative
+    if info.section ==# 'Unstaged' || info.section ==# 'Untracked'
+      call extend(paths, info.paths)
     endif
   endfor
   try
-    if !empty(intend)
-      call s:TreeChomp(['add', '--intent-to-add', '--'] + intend)
-    endif
-    if !empty(add)
-      execute "tab Git add --patch -- ".join(map(add,'fnameescape(v:val)'))
-    endif
-    if !empty(reset)
-      execute "tab Git reset --patch -- ".join(map(reset,'fnameescape(v:val)'))
+    if !empty(paths)
+      execute "tab JJ split --interactive -- " . join(map(paths, 'fnameescape(v:val)'))
     endif
   catch /^fujjitive:/
     return 'echoerr ' . string(v:exception)
@@ -5361,9 +5285,9 @@ function! s:CommitInteractive(line1, line2, range, bang, mods, options, patch) a
   let status = s:StatusCommand(a:line1, a:line2, a:range, get(a:options, 'curwin') && a:line2 < 0 ? 0 : a:line2, a:bang, a:mods, '', '', [], a:options)
   let status = len(status) ? status . '|' : ''
   if a:patch
-    return status . 'if search("^Unstaged")|exe "normal >"|exe "+"|endif'
+    return status . 'if search("^Working copy changes")|exe "normal >"|exe "+"|endif'
   else
-    return status . 'if search("^Untracked\\|^Unstaged")|exe "+"|endif'
+    return status . 'if search("^Untracked\\|^Working copy changes")|exe "+"|endif'
   endif
 endfunction
 
@@ -6243,7 +6167,7 @@ function! s:BlurStatus() abort
   endif
 endfunction
 
-let s:bang_edits = {'split': 'Git', 'vsplit': 'vertical Git', 'tabedit': 'tab Git', 'pedit': 'Git!'}
+let s:bang_edits = {'split': 'JJ', 'vsplit': 'vertical JJ', 'tabedit': 'tab JJ', 'pedit': 'JJ!'}
 function! fujjitive#Open(cmd, bang, mods, arg, ...) abort
   exe s:VersionCheck()
   if a:bang
@@ -7889,30 +7813,30 @@ function! s:MapGitOps(is_ftplugin) abort
   endif
   exe s:Map('n', 'c<Space>', ':JJ commit<Space>', '', ft)
   exe s:Map('n', 'c<CR>', ':JJ commit<CR>', '', ft)
-  exe s:Map('n', 'cv<Space>', ':tab Git commit -v<Space>', '', ft)
-  exe s:Map('n', 'cv<CR>', ':tab Git commit -v<CR>', '', ft)
+  exe s:Map('n', 'cv<Space>', ':tab JJ describe<Space>', '', ft)
+  exe s:Map('n', 'cv<CR>', ':tab JJ describe<CR>', '', ft)
   exe s:Map('n', 'ca', ':<C-U>JJ describe<CR>', '<silent>', ft)
   exe s:Map('n', 'cc', ':<C-U>JJ commit<CR>', '<silent>', ft)
   exe s:Map('n', 'ce', ':<C-U>JJ squash<CR>', '<silent>', ft)
   exe s:Map('n', 'cw', ':<C-U>JJ describe<CR>', '<silent>', ft)
-  exe s:Map('n', 'cW', ':<C-U>Git commit --fixup=reword:<C-R>=<SID>SquashArgument()<CR>', '', ft)
+  exe s:Map('n', 'cW', ':<C-U>JJ describe -r <C-R>=<SID>SquashArgument()<CR>', '', ft)
   exe s:Map('n', 'cva', ':<C-U>tab JJ describe<CR>', '<silent>', ft)
   exe s:Map('n', 'cvc', ':<C-U>tab JJ describe<CR>', '<silent>', ft)
   exe s:Map('n', 'cRa', ':<C-U>JJ describe<CR>', '<silent>', ft)
   exe s:Map('n', 'cRe', ':<C-U>JJ squash<CR>', '<silent>', ft)
   exe s:Map('n', 'cRw', ':<C-U>JJ describe<CR>', '<silent>', ft)
-  exe s:Map('n', 'cf', ':<C-U>Git commit --fixup=<C-R>=<SID>SquashArgument()<CR>', '', ft)
-  exe s:Map('n', 'cF', ':<C-U><Bar>Git -c sequence.editor=true rebase --interactive --autosquash<C-R>=<SID>RebaseArgument()<CR><Home>Git commit --fixup=<C-R>=<SID>SquashArgument()<CR>', '', ft)
-  exe s:Map('n', 'cs', ':<C-U>Git commit --no-edit --squash=<C-R>=<SID>SquashArgument()<CR>', '', ft)
-  exe s:Map('n', 'cS', ':<C-U><Bar>Git -c sequence.editor=true rebase --interactive --autosquash<C-R>=<SID>RebaseArgument()<CR><Home>Git commit --no-edit --squash=<C-R>=<SID>SquashArgument()<CR>', '', ft)
-  exe s:Map('n', 'cn', ':<C-U>Git commit --edit --squash=<C-R>=<SID>SquashArgument()<CR>', '', ft)
+  exe s:Map('n', 'cf', ':<C-U>echoerr "fujjitive: JJ has no fixup commits. Use :JJ squash instead"<CR>', '<silent>', ft)
+  exe s:Map('n', 'cF', ':<C-U>echoerr "fujjitive: JJ has no fixup commits. Use :JJ squash instead"<CR>', '<silent>', ft)
+  exe s:Map('n', 'cs', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft)
+  exe s:Map('n', 'cS', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft)
+  exe s:Map('n', 'cn', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft)
   exe s:Map('n', 'cA', ':<C-U>echoerr "Use cn"<CR>', '<silent><unique>', ft)
   exe s:Map('n', 'c?', ':<C-U>help fujjitive_c<CR>', '<silent>', ft)
 
   exe s:Map('n', 'cr<Space>', ':JJ backout ', '', ft)
   exe s:Map('n', 'cr<CR>', ':JJ backout<CR>', '', ft)
-  exe s:Map('n', 'crc', ':<C-U>Git revert <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'crn', ':<C-U>Git revert --no-commit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
+  exe s:Map('n', 'crc', ':<C-U>JJ backout -r <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
+  exe s:Map('n', 'crn', ':<C-U>JJ backout -r <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
   exe s:Map('n', 'cr?', ':<C-U>help fujjitive_cr<CR>', '<silent>', ft)
 
   exe s:Map('n', 'cm<Space>', ':JJ new ', '', ft)
@@ -7922,19 +7846,19 @@ function! s:MapGitOps(is_ftplugin) abort
 
   exe s:Map('n', 'cz<Space>', ':JJ new ', '', ft)
   exe s:Map('n', 'cz<CR>', ':JJ new<CR>', '', ft)
-  exe s:Map('n', 'cza', ':<C-U>Git stash apply --quiet --index stash@{<C-R>=v:count<CR>}<CR>', '', ft)
-  exe s:Map('n', 'czA', ':<C-U>Git stash apply --quiet stash@{<C-R>=v:count<CR>}<CR>', '', ft)
-  exe s:Map('n', 'czp', ':<C-U>Git stash pop --quiet --index stash@{<C-R>=v:count<CR>}<CR>', '', ft)
-  exe s:Map('n', 'czP', ':<C-U>Git stash pop --quiet stash@{<C-R>=v:count<CR>}<CR>', '', ft)
-  exe s:Map('n', 'czs', ':<C-U>Git stash push --staged<CR>', '', ft)
-  exe s:Map('n', 'czv', ':<C-U>exe "Gedit" fujjitive#RevParse("stash@{" . v:count . "}")<CR>', '<silent>', ft)
-  exe s:Map('n', 'czw', ':<C-U>Git stash push --keep-index<C-R>=v:count > 1 ? " --all" : v:count ? " --include-untracked" : ""<CR><CR>', '', ft)
-  exe s:Map('n', 'czz', ':<C-U>Git stash push <C-R>=v:count > 1 ? " --all" : v:count ? " --include-untracked" : ""<CR><CR>', '', ft)
+  exe s:Map('n', 'cza', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
+  exe s:Map('n', 'czA', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
+  exe s:Map('n', 'czp', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
+  exe s:Map('n', 'czP', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
+  exe s:Map('n', 'czs', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
+  exe s:Map('n', 'czv', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
+  exe s:Map('n', 'czw', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
+  exe s:Map('n', 'czz', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
   exe s:Map('n', 'cz?', ':<C-U>help fujjitive_cz<CR>', '<silent>', ft)
 
   exe s:Map('n', 'co<Space>', ':JJ edit ', '', ft)
   exe s:Map('n', 'co<CR>', ':JJ edit<CR>', '', ft)
-  exe s:Map('n', 'coo', ':<C-U>Git checkout <C-R>=substitute(<SID>SquashArgument(),"^$",get(<SID>TempState(),"filetype","") ==# "git" ? expand("<cfile>") : "","")<CR> --<CR>', '', ft)
+  exe s:Map('n', 'coo', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
   exe s:Map('n', 'co?', ':<C-U>help fujjitive_co<CR>', '<silent>', ft)
 
   exe s:Map('n', 'cb<Space>', ':JJ bookmark ', '', ft)
@@ -7943,19 +7867,19 @@ function! s:MapGitOps(is_ftplugin) abort
 
   exe s:Map('n', 'r<Space>', ':JJ rebase ', '', ft)
   exe s:Map('n', 'r<CR>', ':JJ rebase<CR>', '', ft)
-  exe s:Map('n', 'ri', ':<C-U>Git rebase --interactive<C-R>=<SID>RebaseArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'rf', ':<C-U>Git -c sequence.editor=true rebase --interactive --autosquash<C-R>=<SID>RebaseArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'ru', ':<C-U>Git rebase --interactive @{upstream}<CR>', '<silent>', ft)
-  exe s:Map('n', 'rp', ':<C-U>Git rebase --interactive @{push}<CR>', '<silent>', ft)
-  exe s:Map('n', 'rw', ':<C-U>Git rebase --interactive<C-R>=<SID>RebaseArgument()<CR><Bar>s/^pick/reword/e<CR>', '<silent>', ft)
-  exe s:Map('n', 'rm', ':<C-U>Git rebase --interactive<C-R>=<SID>RebaseArgument()<CR><Bar>s/^pick/edit/e<CR>', '<silent>', ft)
-  exe s:Map('n', 'rd', ':<C-U>Git rebase --interactive<C-R>=<SID>RebaseArgument()<CR><Bar>s/^pick/drop/e<CR>', '<silent>', ft)
-  exe s:Map('n', 'rk', ':<C-U>Git rebase --interactive<C-R>=<SID>RebaseArgument()<CR><Bar>s/^pick/drop/e<CR>', '<silent>', ft)
-  exe s:Map('n', 'rx', ':<C-U>Git rebase --interactive<C-R>=<SID>RebaseArgument()<CR><Bar>s/^pick/drop/e<CR>', '<silent>', ft)
-  exe s:Map('n', 'rr', ':<C-U>Git rebase --continue<CR>', '<silent>', ft)
-  exe s:Map('n', 'rs', ':<C-U>Git rebase --skip<CR>', '<silent>', ft)
-  exe s:Map('n', 're', ':<C-U>Git rebase --edit-todo<CR>', '<silent>', ft)
-  exe s:Map('n', 'ra', ':<C-U>Git rebase --abort<CR>', '<silent>', ft)
+  exe s:Map('n', 'ri', ':<C-U>echoerr "fujjitive: JJ has no interactive rebase. Use :JJ rebase -r REV -d DEST"<CR>', '<silent>', ft)
+  exe s:Map('n', 'rf', ':<C-U>echoerr "fujjitive: JJ has no interactive rebase. Use :JJ rebase -r REV -d DEST"<CR>', '<silent>', ft)
+  exe s:Map('n', 'ru', ':<C-U>echoerr "fujjitive: JJ has no interactive rebase. Use :JJ rebase -r REV -d DEST"<CR>', '<silent>', ft)
+  exe s:Map('n', 'rp', ':<C-U>echoerr "fujjitive: JJ has no interactive rebase. Use :JJ rebase -r REV -d DEST"<CR>', '<silent>', ft)
+  exe s:Map('n', 'rw', ':<C-U>JJ describe -r <C-R>=<SID>SquashArgument()<CR>', '', ft)
+  exe s:Map('n', 'rm', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
+  exe s:Map('n', 'rd', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
+  exe s:Map('n', 'rk', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
+  exe s:Map('n', 'rx', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
+  exe s:Map('n', 'rr', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no continue needed"<CR>', '<silent>', ft)
+  exe s:Map('n', 'rs', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no skip needed"<CR>', '<silent>', ft)
+  exe s:Map('n', 're', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no todo list"<CR>', '<silent>', ft)
+  exe s:Map('n', 'ra', ':<C-U>echoerr "fujjitive: Use :JJ undo to undo the last operation"<CR>', '<silent>', ft)
   exe s:Map('n', 'r?', ':<C-U>help fujjitive_r<CR>', '<silent>', ft)
 endfunction
 
@@ -8058,10 +7982,8 @@ function! s:CfilePorcelain(...) abort
   let info = s:StageInfo()
   let line = getline('.')
   if len(info.sigil) && len(info.section) && len(info.paths)
-    if info.section ==# 'Unstaged' && info.sigil !=# '-'
+    if info.sigil !=# '-'
       return [lead . info.relative[0], info.offset, 'normal!zv']
-    elseif info.section ==# 'Staged' && info.sigil ==# '-'
-      return ['@:' . info.relative[0], info.offset, 'normal!zv']
     else
       return [':0:' . info.relative[0], info.offset, 'normal!zv']
     endif
