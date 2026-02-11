@@ -97,6 +97,15 @@ Set `g:fujjitive_jj_executable` to customize the `jj` binary path:
 
     let g:fujjitive_jj_executable = '/usr/local/bin/jj'
 
+## Development
+
+This project supports AI-assisted development via OpenCode. You can trigger OpenCode assistance by:
+
+1. Commenting `/opencode` or `/oc` on any issue or pull request
+2. Including `/opencode` or `/oc` in a pull request review comment
+
+OpenCode will help with code reviews, bug fixes, feature implementation, and documentation updates.
+
 ## License
 
 Based on fugitive.vim by Tim Pope. Copyright (c) Tim Pope. Distributed under
