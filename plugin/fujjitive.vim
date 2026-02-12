@@ -734,7 +734,7 @@ augroup END
 nmap <script><silent> <Plug>fujjitive:y<C-G> :<C-U>call setreg(v:register, fujjitive#Object(@%))<CR>
 nmap <script> <Plug>fujjitive: <Nop>
 
-if get(g:, 'fugitive_no_maps')
+if get(g:, 'fujjitive_no_maps')
   finish
 endif
 

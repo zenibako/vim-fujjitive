@@ -110,7 +110,7 @@ function! s:VersionCheck() abort
     endif
     return 'return ' . string('echoerr "fujjitive: cannot execute JJ"')
   elseif !fujjitive#GitVersion(0, 9)
-    return 'return ' . string('echoerr "fujjitive: Git 1.8.5 or newer required"')
+    return 'return ' . string('echoerr "fujjitive: JJ 0.9 or newer required"')
   else
     if exists('b:jj_dir') && empty(b:jj_dir)
       unlet! b:jj_dir
@@ -119,7 +119,7 @@ function! s:VersionCheck() abort
   endif
 endfunction
 
-let s:worktree_error = "core.worktree is required when using an external Git dir"
+let s:worktree_error = "working directory is required when using an external JJ repo"
 function! s:DirCheck(...) abort
   let dir = call('FujjitiveJJDir', a:000)
   if !empty(dir) && FujjitiveWorkTree(dir, 1) is# 0
@@ -655,7 +655,7 @@ function! s:PrepareEnv(env, dir) abort
     endif
   endif
   if len($JJ_WORK_TREE)
-    let a:env['GIT_WORK_TREE'] = '.'
+    let a:env['JJ_WORK_TREE'] = '.'
   endif
 endfunction
 
@@ -708,8 +708,13 @@ function! fujjitive#PrepareDirEnvGitFlagsArgs(...) abort
       call remove(cmd, i)
     elseif cmd[i] =~# '^$\|[\/.]' && cmd[i] !~# '^-'
       let dir = s:Dir(remove(cmd, i))
-    elseif cmd[i] =~# '^--git-dir='
-      let dir = s:Dir(remove(cmd, i)[10:-1])
+    elseif cmd[i] =~# '^--git-dir=\|^-R$'
+      if cmd[i] ==# '-R' && len(cmd) > i + 1
+        call remove(cmd, i)
+        let dir = s:Dir(remove(cmd, i))
+      else
+        let dir = s:Dir(remove(cmd, i)[10:-1])
+      endif
     elseif type(cmd[i]) ==# type(0)
       let dir = s:Dir(remove(cmd, i))
     elseif cmd[i] ==# '-c' && len(cmd) > i + 1
@@ -1050,8 +1055,7 @@ endfunction
 " Section: JJ config
 
 function! s:ConfigTimestamps(dir, dict) abort
-  let files = ['/etc/gitconfig', '~/.gitconfig',
-        \ len($XDG_CONFIG_HOME) ? $XDG_CONFIG_HOME . '/git/config' : '~/.config/git/config']
+  let files = [len($XDG_CONFIG_HOME) ? $XDG_CONFIG_HOME . '/jj/config.toml' : '~/.config/jj/config.toml']
   if len(a:dir)
     call add(files, fujjitive#Find('.jj/config', a:dir))
   endif
@@ -2145,7 +2149,7 @@ function! s:TreeInfo(dir, commit) abort
       let s:trees[key] = {}
     endif
     if !has_key(s:trees[key], a:commit)
-      let ftime = s:ChompDefault('', [a:dir, 'log', '-1', '--pretty=format:%ct', a:commit, '--'])
+      let ftime = s:ChompDefault('', [a:dir, 'log', '--no-graph', '-r', a:commit, '-T', 'committer.timestamp().unix()'])
       if empty(ftime)
         let s:trees[key][a:commit] = [{}, -1]
         return s:trees[key][a:commit]
@@ -2495,10 +2499,7 @@ function! fujjitive#CompleteObject(base, ...) abort
       call map(results, 's:fnameescape(v:val)')
     elseif base !~# '^\.\=/\|^:('
       let heads = s:CompleteHeads(dir)
-      if filereadable(fujjitive#Find('.jj/refs/stash', dir))
-        let heads += ["stash"]
-        let heads += sort(s:LinesError(["stash","list","--pretty=format:%gd"], dir)[0])
-      endif
+      " JJ has no stash concept; stash completion removed
       let results += s:FilterEscape(heads, fnameescape(base))
     endif
     let results += a:0 == 1 || a:0 >= 3 ? fujjitive#CompletePath(base, 0, '', dir, a:0 >= 4 ? a:4 : tree) : fujjitive#CompletePath(base)
@@ -2529,7 +2530,7 @@ function! s:CompleteSub(subcommand, A, L, P, ...) abort
   if pre =~# ' -- '
     return fujjitive#CompletePath(a:A)
   elseif a:A =~# '^-' || a:A is# 0
-    return s:FilterEscape(split(s:ChompDefault('', [a:subcommand, '--git-completion-helper']), ' '), a:A)
+    return s:FilterEscape(['--help'], a:A)
   elseif !a:0
     return fujjitive#CompleteObject(a:A, s:Dir())
   elseif type(a:1) == type(function('tr'))
@@ -3140,7 +3141,7 @@ function! fujjitive#BufReadCmd(...) abort
         if b:fujjitive_display_format
           call s:ReplaceCmd([dir, 'cat-file', b:fujjitive_type, rev])
         else
-          call s:ReplaceCmd([dir, '-c', 'diff.noprefix=false', '-c', 'log.showRoot=false', 'show', '--no-color', '-m', '--first-parent', '--pretty=format:tree%x20%T%nparent%x20%P%nauthor%x20%an%x20<%ae>%x20%ad%ncommitter%x20%cn%x20<%ce>%x20%cd%nencoding%x20%e%n%n%B', rev])
+          call s:ReplaceCmd([dir, 'show', '--no-pager', '-r', rev, '-T', 'concat("author " ++ author.name() ++ " <" ++ author.email() ++ "> " ++ author.timestamp() ++ "\ncommitter " ++ committer.name() ++ " <" ++ committer.email() ++ "> " ++ committer.timestamp() ++ "\n\n" ++ description)'])
           keepjumps 1
           keepjumps call search('^parent ')
           if getline('.') ==# 'parent '
@@ -3784,10 +3785,8 @@ function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
     let pager = fujjitive#PagerFor(args, config)
   endif
   let wants_terminal = type(pager) ==# type('') ||
-        \ (s:HasOpt(args, ['add', 'checkout', 'commit', 'reset', 'restore', 'stage', 'restore'], '-p', '--patch') ||
-        \ s:HasOpt(args, ['add', 'clean', 'stage'], '-i', '--interactive') ||
-        \ s:HasOpt(args, ['split'], '-i', '--interactive', '--tool') ||
-        \ (get(args, 0, '') ==# 'split' && index(args, '--') == -1)) && pager is# 0
+        \ (s:HasOpt(args, ['split', 'diffedit', 'resolve'], '') ||
+        \ s:HasOpt(args, ['commit', 'describe'], '-i', '--interactive')) && pager is# 0
   if wants_terminal
     let mods = substitute(s:Mods(a:mods), '\<tab\>', '-tab', 'g')
     let assign = len(dir) ? "|call FujjitiveDetect({'jj_dir':" . string(options.jj_dir) . '})' : ''
@@ -4024,82 +4023,25 @@ function! fujjitive#GitComplete(lead, ...) abort
   return a:0 >= 3 ? fujjitive#Complete(a:lead, a:1, a:2, a:3) : []
 endfunction
 
-let s:exec_paths = {}
-function! s:JJExecPath() abort
-  let git = s:GitShellCmd()
-  if !has_key(s:exec_paths, git)
-    let path = get(s:JobExecute(s:GitCmd() + ['--exec-path'], {}, [], [], {}).stdout, 0, '')
-    let s:exec_paths[git] = [path, FujjitiveVimPath(path)]
-  endif
-  return s:exec_paths[git]
-endfunction
-
-function! s:JJVimExecPath() abort
-  return s:JJExecPath()[1]
-endfunction
-
-let s:subcommands_before_2_5 = [
-      \ 'add', 'am', 'apply', 'archive', 'bisect', 'blame', 'branch', 'bundle',
-      \ 'checkout', 'cherry', 'cherry-pick', 'citool', 'clean', 'clone', 'commit', 'config',
-      \ 'describe', 'diff', 'difftool', 'fetch', 'format-patch', 'fsck',
-      \ 'gc', 'grep', 'gui', 'help', 'init', 'instaweb', 'log',
-      \ 'merge', 'mergetool', 'mv', 'notes', 'pull', 'push',
-      \ 'rebase', 'reflog', 'remote', 'repack', 'replace', 'request-pull', 'reset', 'revert', 'rm',
-      \ 'send-email', 'shortlog', 'show', 'show-branch', 'restore', 'stage', 'status', 'submodule',
-      \ 'tag', 'whatchanged',
+let s:jj_subcommands = [
+      \ 'abandon', 'absorb', 'backout', 'bookmark', 'commit', 'config',
+      \ 'describe', 'diff', 'diffedit', 'duplicate', 'edit', 'evolog',
+      \ 'file', 'fix', 'git', 'help', 'interdiff', 'log',
+      \ 'merge', 'new', 'next', 'operation', 'parallelize', 'prev',
+      \ 'rebase', 'resolve', 'restore', 'revert', 'root',
+      \ 'show', 'simplify-parents', 'split', 'squash', 'status', 'tag',
+      \ 'util', 'version', 'workspace',
       \ ]
-let s:path_subcommands = {}
+let s:cached_subcommands = []
 function! s:CompletableSubcommands(dir) abort
-  let c_exec_path = s:cpath(s:JJVimExecPath())
-  if !has_key(s:path_subcommands, c_exec_path)
-    if fujjitive#GitVersion(2, 18)
-      let [lines, exec_error] = s:LinesError([a:dir, '--list-cmds=list-mainporcelain,nohelpers,list-complete'])
-      call filter(lines, 'v:val =~# "^\\S\\+$"')
-      if !exec_error && len(lines)
-        let s:path_subcommands[c_exec_path] = lines
-      else
-        let s:path_subcommands[c_exec_path] = s:subcommands_before_2_5 +
-              \ ['maintenance', 'prune', 'range-diff', 'restore', 'sparse-checkout', 'switch', 'worktree']
-      endif
-    else
-      let s:path_subcommands[c_exec_path] = s:subcommands_before_2_5 +
-            \ (fujjitive#GitVersion(2, 5) ? ['worktree'] : [])
-    endif
+  if empty(s:cached_subcommands)
+    let s:cached_subcommands = copy(s:jj_subcommands)
+    " Also include git-bridged subcommands accessible via :JJ git <cmd>
+    call extend(s:cached_subcommands, ['blame'])
   endif
-  let commands = copy(s:path_subcommands[c_exec_path])
-  for path in split($PATH, has('win32') ? ';' : ':')
-    if path !~# '^/\|^\a:[\\/]'
-      continue
-    endif
-    let cpath = s:cpath(path)
-    if !has_key(s:path_subcommands, cpath)
-      let s:path_subcommands[cpath] = filter(map(s:GlobComplete(path.'/git-', '*', 1),'substitute(v:val,"\\.exe$","","")'), 'v:val !~# "--\\|/"')
-    endif
-    call extend(commands, s:path_subcommands[cpath])
-  endfor
+  let commands = copy(s:cached_subcommands)
   call extend(commands, keys(fujjitive#ConfigGetRegexp('^alias\.\zs[^.]\+$', a:dir)))
-  let configured = split(FujjitiveConfigGet('completion.commands', a:dir), '\s\+')
-  let rejected = {}
-  for command in configured
-    if command =~# '^-.'
-      let rejected[strpart(command, 1)] = 1
-    endif
-  endfor
-  call filter(configured, 'v:val !~# "^-"')
-  let results = filter(sort(commands + configured), '!has_key(rejected, v:val)')
-  if exists('*uniq')
-    return uniq(results)
-  else
-    let i = 1
-    while i < len(results)
-      if results[i] ==# results[i-1]
-        call remove(results, i)
-      else
-        let i += 1
-      endif
-    endwhile
-    return results
-  endif
+  return sort(commands)
 endfunction
 
 function! fujjitive#Complete(lead, ...) abort
@@ -4110,7 +4052,7 @@ function! fujjitive#Complete(lead, ...) abort
   if empty(subcmd) && a:lead =~# '^+'
     let results = ['++curwin']
   elseif empty(subcmd) && a:lead =~# '^-'
-    let results = ['', '--no-pager', '--glob-pathspecs', '--noglob-pathspecs', '--icase-pathspecs', '--no-optional-locks']
+    let results = ['', '--no-pager', '--color', '--no-color', '--quiet', '--verbose']
   elseif empty(subcmd)
     let results = s:CompletableSubcommands(dir)
   elseif a:0 ==# 2 && subcmd =~# '^\%(commit\|revert\|push\|fetch\|pull\|merge\|rebase\|bisect\)$'
@@ -4120,7 +4062,8 @@ function! fujjitive#Complete(lead, ...) abort
   elseif pre =~# ' -- '
     return fujjitive#CompletePath(a:lead, a:1, a:2, dir, root)
   elseif a:lead =~# '^-'
-    let results = split(s:ChompDefault('', [dir, subcmd, '--git-completion-helper']), ' ')
+    " JJ doesn't have --git-completion-helper; return common flags
+    let results = ['--help']
   else
     return fujjitive#CompleteObject(a:lead, a:1, a:2, dir, root)
   endif
@@ -5169,7 +5112,8 @@ function! s:DoToggleUnpulled(record) abort
 endfunction
 
 function! s:DoUnstageUnpushed(record) abort
-  call feedkeys(':JJ -c sequence.editor=true rebase --interactive --autosquash ' . a:record.commit . '^')
+  " JJ: rebase the commit onto its grandparent (squash into parent)
+  call feedkeys(':JJ rebase -r ' . a:record.commit . ' -d ' . a:record.commit . '~')
 endfunction
 
 " Toggle (-): context-dependent split.  In the working copy sections this
@@ -5307,7 +5251,8 @@ function! s:CommitSubcommand(line1, line2, range, bang, mods, options) abort
   endwhile
   if s:HasOpt(argv, '-i', '--interactive')
     return s:CommitInteractive(a:line1, a:line2, a:range, a:bang, a:mods, a:options, 0)
-  elseif s:HasOpt(argv, '-p', '--patch')
+  elseif s:HasOpt(argv, '-p', '--patch', '-s', '--split')
+    " JJ: --patch/--split opens status buffer focused on working copy changes
     return s:CommitInteractive(a:line1, a:line2, a:range, a:bang, a:mods, a:options, 1)
   else
     return {}
@@ -5321,7 +5266,7 @@ endfunction
 function! fujjitive#CommitComplete(A, L, P, ...) abort
   let dir = a:0 ? a:1 : s:Dir()
   if a:A =~# '^--fixup=\|^--squash='
-    let commits = s:LinesError([dir, 'log', '--pretty=format:%s', '@{upstream}..'])[0]
+    let commits = s:LinesError([dir, 'log', '--no-graph', '-r', '::@ & mutable()', '-T', 'description.first_line() ++ "\n"'])[0]
     let pre = matchstr(a:A, '^--\w*=''\=') . ':/^'
     if pre =~# "'"
       call map(commits, 'pre . string(tr(v:val, "|\"^$*[]", "......."))[1:-1]')
@@ -5355,20 +5300,15 @@ function! fujjitive#PullComplete(A, L, P, ...) abort
 endfunction
 
 function! s:MergeSubcommand(line1, line2, range, bang, mods, options) abort
-  if empty(a:options.subcommand_args) && (
-        \ filereadable(fujjitive#Find('.jj/MERGE_MSG', a:options)) ||
-        \ isdirectory(fujjitive#Find('.jj/rebase-apply', a:options)) ||
-        \  !empty(s:TreeChomp([a:options.jj_dir, 'diff-files', '--diff-filter=U'])))
-    return 'echoerr ":JJ merge for loading conflicts has been removed in favor of :JJ resolve"'
+  " JJ: merge is handled via `jj new` with multiple parents
+  if empty(a:options.subcommand_args)
+    return 'echoerr "fujjitive: Use :JJ new REV1 REV2 to create a merge commit"'
   endif
   return {}
 endfunction
 
 function! s:RebaseSubcommand(line1, line2, range, bang, mods, options) abort
-  let args = a:options.subcommand_args
-  if s:HasOpt(args, '--autosquash') && !s:HasOpt(args, '-i', '--interactive')
-    return {'env': {'JJ_SEQUENCE_EDITOR': 'true'}, 'insert_args': ['--interactive']}
-  endif
+  " JJ rebase is non-interactive; pass through directly
   return {}
 endfunction
 
@@ -5554,7 +5494,6 @@ function! s:DifftoolSubcommand(line1, line2, range, bang, mods, options) abort
   let i = 0
   let argv = copy(a:options.subcommand_args)
   let commits = []
-  let cached = 0
   let reverse = 1
   let prompt = 1
   let state = {'name_only': 0}
@@ -5568,9 +5507,7 @@ function! s:DifftoolSubcommand(line1, line2, range, bang, mods, options) abort
       continue
     endif
     let arg = argv[i]
-    if arg ==# '--cached'
-      let cached = 1
-    elseif arg ==# '-R'
+    if arg ==# '-R'
       let reverse = 1
     elseif arg ==# '--name-only'
       let state.name_only = 1
@@ -5609,12 +5546,7 @@ function! s:DifftoolSubcommand(line1, line2, range, bang, mods, options) abort
     call add(commits, merge_base_against)
   endif
   let commits = filter(copy(commits), 'v:val.uninteresting') + filter(commits, '!v:val.uninteresting')
-  if cached
-    if empty(commits)
-      call add(commits, {'prefix': '@:', 'module': '@:'})
-    endif
-    call add(commits, {'prefix': ':0:', 'module': ':0:'})
-  elseif len(commits) < 2
+  if len(commits) < 2
     call add(commits, {'prefix': ':(top)'})
     if len(commits) < 2
       call insert(commits, {'prefix': ':0:', 'module': ':0:'})
@@ -5714,11 +5646,8 @@ function! s:GrepOptions(args, dir) abort
     if arg =~# '^\%(-' . s:grep_combine_flags . '[lL]\|--files-with-matches\|--name-only\|--files-without-match\)$'
       let options.name_only = 1
     endif
-    if arg ==# '--cached'
-      let options.prefix = fujjitive#Find(':0:', a:dir)
-    elseif arg ==# '--no-cached'
-      let options.prefix = prefix
-    endif
+    " JJ has no staging area; --cached is ignored
+    " Grep always searches the working copy
   endfor
   return options
 endfunction
@@ -5802,7 +5731,7 @@ function! s:GrepSubcommand(line1, line2, range, bang, mods, options) abort
         \ 'filetype': 'git',
         \ 'mods': s:Mods(a:mods),
         \ 'file': s:Resolve(tempfile)}
-  let event = listnr < 0 ? 'grep-fugitive' : 'lgrep-fugitive'
+  let event = listnr < 0 ? 'grep-fujjitive' : 'lgrep-fujjitive'
   exe s:DoAutocmd('QuickFixCmdPre ' . event)
   try
     if !quiet && &more
@@ -5868,7 +5797,7 @@ function! s:LogParse(state, dir, prefix, line) abort
   if a:state.mode ==# 'hunk' && a:line =~# '^[-+ ]'
     return []
   endif
-  let list = matchlist(a:line, '^\%(fugitive \(.\{-\}\)\t\|commit \|From \)\=\(\x\{40,\}\)\%( \(.*\)\)\=$')
+  let list = matchlist(a:line, '^\%(fujjitive \(.\{-\}\)\t\|commit \|From \)\=\(\x\{40,\}\)\%( \(.*\)\)\=$')
   if len(list)
     let queue = s:LogFlushQueue(a:state, a:dir)
     let a:state.mode = 'commit'
@@ -6007,14 +5936,10 @@ function! fujjitive#LogCommand(line1, count, range, bang, mods, args, type) abor
   if empty(extra_paths)
     let path = ''
   endif
-  if s:HasOpt(args, '-g', '--walk-reflogs')
-    let format = "%gd %P\t%H %gs"
-  else
-    let format = "%h %P\t%H " . g:fujjitive_summary_format
-  endif
+  " JJ has no reflogs; --walk-reflogs is ignored
+  let jj_template = 'concat("fujjitive " ++ change_id.short() ++ " " ++ parents.map(|p| p.commit_id().hex()).join(" ") ++ "\t" ++ commit_id.hex() ++ " " ++ description.first_line() ++ "\n")'
   let cmd = ['--no-pager']
-  call extend(cmd, ['log'] +
-        \ ['--no-color', '--no-ext-diff', '--pretty=format:fugitive ' . format] +
+  call extend(cmd, ['log', '--no-graph', '-T', jj_template] +
         \ args + extra_args + paths + extra_paths)
   let state.target = path
   let title = titlepre . (listnr < 0 ? 'Gclog ' : 'Gllog ') . s:fnameescape(args + paths)
@@ -6449,7 +6374,7 @@ augroup END
 
 function! s:can_diffoff(buf) abort
   return getwinvar(bufwinnr(a:buf), '&diff') &&
-        \ !empty(getwinvar(bufwinnr(a:buf), 'fugitive_diff_restore'))
+        \ !empty(getwinvar(bufwinnr(a:buf), 'fujjitive_diff_restore'))
 endfunction
 
 function! fujjitive#CanDiffoff(buf) abort
@@ -6462,7 +6387,7 @@ function! s:DiffModifier(count, default) abort
     return ''
   elseif &diffopt =~# 'vertical'
     return 'vertical '
-  elseif !get(g:, 'fugitive_diffsplit_directional_fit', a:default)
+  elseif !get(g:, 'fujjitive_diffsplit_directional_fit', a:default)
     return ''
   elseif winwidth(0) <= a:count * ((&tw ? &tw : 80) + (empty(fdc) ? 2 : fdc))
     return ''
@@ -6481,21 +6406,21 @@ endfunction
 
 function! s:diffthis() abort
   if !&diff
-    let w:fugitive_diff_restore = 1
+    let w:fujjitive_diff_restore = 1
     diffthis
   endif
 endfunction
 
 function! s:diffoff() abort
-  unlet! w:fugitive_diff_restore
+  unlet! w:fujjitive_diff_restore
   diffoff
 endfunction
 
 function! s:diffoff_all(dir) abort
   let curwin = winnr()
   for nr in range(1,winnr('$'))
-    if getwinvar(nr, '&diff') && !empty(getwinvar(nr, 'fugitive_diff_restore'))
-      call setwinvar(nr, 'fugitive_diff_restore', '')
+    if getwinvar(nr, '&diff') && !empty(getwinvar(nr, 'fujjitive_diff_restore'))
+      call setwinvar(nr, 'fujjitive_diff_restore', '')
     endif
   endfor
   if curwin != winnr()
@@ -6611,7 +6536,7 @@ function! fujjitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
     elseif s:IsConflicted()
       let file = s:Relative(':1:')
       let mods = s:Mods(a:mods, 'leftabove')
-      if get(g:, 'fugitive_legacy_commands', 1)
+      if get(g:, 'fujjitive_legacy_commands', 1)
         let post = 'echohl WarningMsg|echo "Use :Gdiffsplit! for 3 way diff"|echohl NONE|' . post
       endif
     else
@@ -6624,14 +6549,14 @@ function! fujjitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
       let spec = s:VimSlash(spec . s:Relative('/'))
     endif
     exe pre
-    let w:fugitive_diff_restore = 1
+    let w:fujjitive_diff_restore = 1
     let mods = (autodir ? s:DiffModifier(2, empty(args) || args[0] =~# '^>') : '') . mods
     if &diffopt =~# 'vertical'
       let diffopt = &diffopt
       set diffopt-=vertical
     endif
     execute mods 'diffsplit' s:fnameescape(spec)
-    let w:fugitive_diff_restore = 1
+    let w:fujjitive_diff_restore = 1
     let winnr = winnr()
     if getwinvar('#', '&diff')
       if a:keepfocus
@@ -6730,10 +6655,8 @@ function! s:Remove(after, force) abort
   exe s:VersionCheck()
   let dir = s:Dir()
   exe s:DirCheck(dir)
-  if len(@%) && s:DirCommitFile(@%)[1] ==# ''
-    let cmd = ['rm']
-  elseif s:DirCommitFile(@%)[1] ==# '0'
-    let cmd = ['rm','--cached']
+  if len(@%) && s:DirCommitFile(@%)[1] =~# '^0\=$'
+    let cmd = ['file', 'untrack']
   else
     return 'echoerr ' . string('fujjitive: rm not supported for this buffer')
   endif
@@ -6764,9 +6687,9 @@ endfunction
 " Section: :JJ blame
 
 function! s:Keywordprg() abort
-  let args = ' --git-dir=' . escape(FujjitiveJJPath(s:JJDir()), "\\\"' ")
+  let args = ' -R ' . escape(FujjitiveJJPath(s:JJDir()), "\\\"' ")
   if has('gui_running') && !has('win32')
-    return s:GitShellCmd() . ' --no-pager' . args . ' log -1'
+    return s:GitShellCmd() . ' --no-pager' . args . ' show'
   else
     return s:GitShellCmd() . args . ' show'
   endif
@@ -7044,7 +6967,7 @@ function! s:BlameSubcommand(line1, count, range, bang, mods, options) abort
         let top = line('w0') + &scrolloff
         let current = line('.')
         exe 'silent keepalt' (a:bang ? s:Mods(mods) . 'split' : s:Mods(mods, 'leftabove') . 'vsplit') s:fnameescape(temp)
-        let w:fugitive_leave = join(restore, '|')
+        let w:fujjitive_leave = join(restore, '|')
         execute top
         normal! zt
         execute current
@@ -7208,7 +7131,7 @@ function! fujjitive#BlameSyntax() abort
   hi def link FugitiveblameShort              FugitiveblameDelimiter
   hi def link FugitiveblameDelimiter          Delimiter
   hi def link FugitiveblameNotCommittedYet    Comment
-  if !get(g:, 'fugitive_dynamic_colors', 1) && !s:HasOpt(flags, '--color-lines') || s:HasOpt(flags, '--no-color-lines')
+  if !get(g:, 'fujjitive_dynamic_colors', 1) && !s:HasOpt(flags, '--color-lines') || s:HasOpt(flags, '--no-color-lines')
     return
   endif
   let seen = {}
@@ -7313,7 +7236,7 @@ endfunction
 augroup fujjitive_blame
   autocmd!
   autocmd ColorScheme,GUIEnter * call s:BlameRehighlight()
-  autocmd BufWinLeave * execute getwinvar(+bufwinnr(+expand('<abuf>')), 'fugitive_leave')
+  autocmd BufWinLeave * execute getwinvar(+bufwinnr(+expand('<abuf>')), 'fujjitive_leave')
   autocmd WinLeave * let s:cursor_for_blame = [bufnr(''), line('.')]
   autocmd WinEnter * if exists('s:cursor_for_blame') | call call('s:BlameCursorSync', s:cursor_for_blame) | endif
 augroup END
@@ -7590,7 +7513,7 @@ function! fujjitive#BrowseCommand(line1, count, range, bang, mods, arg, ...) abo
       let opts.path = s:sub(opts.path, '/\=$', '/')
     endif
 
-    for l:.Handler in get(g:, 'fugitive_browse_handlers', [])
+    for l:.Handler in get(g:, 'fujjitive_browse_handlers', [])
       let l:.url = call(Handler, [copy(opts)])
       if type(url) == type('') && url =~# '://'
         return s:BrowserOpen(url, a:mods, a:bang)
@@ -7643,7 +7566,7 @@ endfunction
 
 function! fujjitive#ResolveUrl(target, ...) abort
   let repo = call('s:Dir', a:000)
-  let origins = get(g:, 'fugitive_url_origins', {})
+  let origins = get(g:, 'fujjitive_url_origins', {})
   let prefix = substitute(s:Slash(a:target), '#.*', '', '')
   while prefix =~# '://'
     let extracted = FujjitiveExtractJJDir(expand(get(origins, prefix, '')))
@@ -7668,7 +7591,7 @@ function! fujjitive#ResolveUrl(target, ...) abort
             \ 'line1': get(variant, 2),
             \ 'line2': get(variant, 3)}
       let url = ''
-      for l:.Handler in get(g:, 'fugitive_browse_handlers', [])
+      for l:.Handler in get(g:, 'fujjitive_browse_handlers', [])
         let l:.url = call(Handler, [copy(handler_opts)])
         if type(url) == type('') && url =~# '://'
           break
@@ -7870,10 +7793,10 @@ function! s:MapGitOps(is_ftplugin) abort
 
   exe s:Map('n', 'r<Space>', ':JJ rebase ', '', ft)
   exe s:Map('n', 'r<CR>', ':JJ rebase<CR>', '', ft)
-  exe s:Map('n', 'ri', ':<C-U>echoerr "fujjitive: JJ has no interactive rebase. Use :JJ rebase -r REV -d DEST"<CR>', '<silent>', ft)
-  exe s:Map('n', 'rf', ':<C-U>echoerr "fujjitive: JJ has no interactive rebase. Use :JJ rebase -r REV -d DEST"<CR>', '<silent>', ft)
-  exe s:Map('n', 'ru', ':<C-U>echoerr "fujjitive: JJ has no interactive rebase. Use :JJ rebase -r REV -d DEST"<CR>', '<silent>', ft)
-  exe s:Map('n', 'rp', ':<C-U>echoerr "fujjitive: JJ has no interactive rebase. Use :JJ rebase -r REV -d DEST"<CR>', '<silent>', ft)
+  exe s:Map('n', 'ri', ':<C-U>JJ rebase -r <C-R>=<SID>SquashArgument()<CR> -d ', '', ft)
+  exe s:Map('n', 'rf', ':<C-U>JJ squash --into <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
+  exe s:Map('n', 'ru', ':<C-U>JJ rebase -b <C-R>=<SID>SquashArgument()<CR> -d ''trunk()''<CR>', '<silent>', ft)
+  exe s:Map('n', 'rp', ':<C-U>JJ rebase -b <C-R>=<SID>SquashArgument()<CR> -d ''trunk()''<CR>', '<silent>', ft)
   exe s:Map('n', 'rw', ':<C-U>JJ describe -r <C-R>=<SID>SquashArgument()<CR>', '', ft)
   exe s:Map('n', 'rm', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
   exe s:Map('n', 'rd', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
