@@ -1,10 +1,10 @@
 ---
 id: TASK-2
 title: Implement interactive splitting via terminal mode for S/I keymaps
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-02-12 21:37'
-updated_date: '2026-02-12 21:55'
+updated_date: '2026-02-12 21:59'
 labels:
   - feature
   - keymaps
@@ -31,14 +31,14 @@ After the terminal closes, the status buffer should be reloaded to reflect the n
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Pressing S in the status buffer opens `jj split --interactive` in a terminal buffer (new tab)
-- [ ] #2 Pressing I in the status buffer also opens `jj split --interactive` in a terminal buffer
-- [ ] #3 Visual-mode S and I operate on selected files: `jj split --interactive -- <files>`
-- [ ] #4 `jj split` with no filesets (bare split) also routes to terminal mode since it is interactive by default
-- [ ] #5 Works in both Neovim (termopen) and Vim 8+ (term_start)
-- [ ] #6 The `tab` modifier is respected — terminal opens in a new tab
-- [ ] #7 Status buffer reloads after the terminal command completes
-- [ ] #8 The `--tool` flag on split also triggers terminal mode
+- [x] #1 Pressing S in the status buffer opens `jj split --interactive` in a terminal buffer (new tab)
+- [x] #2 Pressing I in the status buffer also opens `jj split --interactive` in a terminal buffer
+- [x] #3 Visual-mode S and I operate on selected files: `jj split --interactive -- <files>`
+- [x] #4 `jj split` with no filesets (bare split) also routes to terminal mode since it is interactive by default
+- [x] #5 Works in both Neovim (termopen) and Vim 8+ (term_start)
+- [x] #6 The `tab` modifier is respected — terminal opens in a new tab
+- [x] #7 Status buffer reloads after the terminal command completes
+- [x] #8 The `--tool` flag on split also triggers terminal mode
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -78,3 +78,15 @@ Simplest approach: append `fujjitive#DidChange` to the `assign` string so it run
 ### Files changed
 - `autoload/fujjitive.vim`: wants_terminal expression + terminal close callback
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Summary
+
+Added `'split'` to the `wants_terminal` guard in `fujjitive#Command()` so that `jj split --interactive`, `jj split --tool`, and bare `jj split` (interactive by default when no filesets given) route to the terminal path in both Neovim (`termopen()`) and Vim 8+ (`term_start()`).
+
+Added `autocmd TermClose <buffer> ++once call fujjitive#DidChange(dir)` to both terminal code paths so the status buffer reloads after the terminal command completes.
+
+Committed as the change after `c9ebbb72`.
+<!-- SECTION:FINAL_SUMMARY:END -->
