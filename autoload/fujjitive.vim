@@ -2602,7 +2602,10 @@ function! s:ReplaceCmd(cmd) abort
 endfunction
 
 function! s:FormatLog(dict) abort
-  let parts = [a:dict.commit]
+  let change = get(a:dict, 'change_id_prefix', a:dict.commit)
+        \ . "\xc2\xb7"
+        \ . get(a:dict, 'change_id_rest', '')
+  let parts = [change]
   if !empty(get(a:dict, 'bookmarks', ''))
     call add(parts, a:dict.bookmarks)
   endif
@@ -2627,7 +2630,10 @@ function! s:FormatBookmark(dict) abort
   if !empty(remote)
     let name .= '@' . remote
   endif
-  let parts = [name, a:dict.change_id]
+  let change = get(a:dict, 'change_id_prefix', a:dict.change_id)
+        \ . "\xc2\xb7"
+        \ . get(a:dict, 'change_id_rest', '')
+  let parts = [name, change]
   let subject = get(a:dict, 'subject', '')
   if empty(subject)
     call add(parts, '(no description set)')
@@ -2694,7 +2700,9 @@ function! s:AddDiffSection(to, stat, label, files, ...) abort
 endfunction
 
 function! s:QueryLog(revset, limit, dir) abort
-  let template = 'change_id.short(8) ++ "\t" ++ commit_id.short(8) ++ "\t"'
+  let template = 'change_id.shortest(8).prefix() ++ "\t"'
+        \ . ' ++ change_id.shortest(8).rest() ++ "\t"'
+        \ . ' ++ commit_id.short(8) ++ "\t"'
         \ . ' ++ bookmarks ++ "\t" ++ if(empty, "empty", "") ++ "\t"'
         \ . ' ++ if(conflict, "conflict", "") ++ "\t"'
         \ . ' ++ description.first_line() ++ "\n"'
@@ -2704,13 +2712,15 @@ function! s:QueryLog(revset, limit, dir) abort
   call filter(log, '!empty(v:val)')
   call map(log, 'split(v:val, "\t", 1)')
   call map(log, '{"type": "Log",'
-        \ . ' "commit": v:val[0],'
-        \ . ' "change_id": v:val[0],'
-        \ . ' "commit_id": get(v:val, 1, ""),'
-        \ . ' "bookmarks": get(v:val, 2, ""),'
-        \ . ' "empty": get(v:val, 3, "") ==# "empty",'
-        \ . ' "conflict": get(v:val, 4, "") ==# "conflict",'
-        \ . ' "subject": get(v:val, 5, "")}')
+        \ . ' "commit": v:val[0] . v:val[1],'
+        \ . ' "change_id": v:val[0] . v:val[1],'
+        \ . ' "change_id_prefix": v:val[0],'
+        \ . ' "change_id_rest": get(v:val, 1, ""),'
+        \ . ' "commit_id": get(v:val, 2, ""),'
+        \ . ' "bookmarks": get(v:val, 3, ""),'
+        \ . ' "empty": get(v:val, 4, "") ==# "empty",'
+        \ . ' "conflict": get(v:val, 5, "") ==# "conflict",'
+        \ . ' "subject": get(v:val, 6, "")}')
   let result = {'error': exec_error ? 1 : 0, 'overflow': 0, 'entries': log}
   if len(log) == a:limit
     call remove(log, -1)
@@ -2729,7 +2739,8 @@ endfunction
 function! s:QueryBookmarks(dir) abort
   let template = 'name ++ "\t" ++ if(self.remote(), self.remote(), "") ++ "\t"'
         \ . ' ++ self.synced() ++ "\t"'
-        \ . ' ++ normal_target.change_id().short(8) ++ "\t"'
+        \ . ' ++ normal_target.change_id().shortest(8).prefix() ++ "\t"'
+        \ . ' ++ normal_target.change_id().shortest(8).rest() ++ "\t"'
         \ . ' ++ normal_target.commit_id().short(8) ++ "\t"'
         \ . ' ++ if(normal_target.empty(), "empty", "") ++ "\t"'
         \ . ' ++ normal_target.description().first_line() ++ "\n"'
@@ -2741,10 +2752,12 @@ function! s:QueryBookmarks(dir) abort
         \ . ' "name": v:val[0],'
         \ . ' "remote": get(v:val, 1, ""),'
         \ . ' "synced": get(v:val, 2, "") ==# "true",'
-        \ . ' "change_id": get(v:val, 3, ""),'
-        \ . ' "commit_id": get(v:val, 4, ""),'
-        \ . ' "empty": get(v:val, 5, "") ==# "empty",'
-        \ . ' "subject": get(v:val, 6, "")}')
+        \ . ' "change_id": get(v:val, 3, "") . get(v:val, 4, ""),'
+        \ . ' "change_id_prefix": get(v:val, 3, ""),'
+        \ . ' "change_id_rest": get(v:val, 4, ""),'
+        \ . ' "commit_id": get(v:val, 5, ""),'
+        \ . ' "empty": get(v:val, 6, "") ==# "empty",'
+        \ . ' "subject": get(v:val, 7, "")}')
   " Hide remote bookmarks that are synced with their local counterpart.
   call filter(lines, 'empty(v:val.remote) || !v:val.synced')
   return {'error': exec_error ? 1 : 0, 'entries': lines}
@@ -3053,6 +3066,9 @@ function! fujjitive#BufReadStatus(cmdbang) abort
     doautocmd <nomodeline> BufReadPre
 
     setlocal readonly nomodifiable noswapfile nomodeline buftype=nowrite
+    if has('conceal')
+      setlocal concealcursor=nc conceallevel=2
+    endif
     call s:MapStatus()
 
     exe s:StatusRender(stat)
@@ -7181,7 +7197,7 @@ function! fujjitive#BlameSyntax() abort
   else
     syn match FugitiveblameBoundary "^\^"
   endif
-  syn match FugitiveblameScoreDebug        " *\d\+\s\+\d\+\s\@=" nextgroup=FugitiveblameAnnotation,FugitiveblameOriginalLineNumber,fujjitiveblameOriginalFile contained skipwhite
+  syn match FugitiveblameScoreDebug        " *\d\+\s\+\d\+\s\@=" nextgroup=FugitiveblameAnnotation,FugitiveblameOriginalLineNumber,FugitiveblameOriginalFile contained skipwhite
   syn region FugitiveblameAnnotation matchgroup=FugitiveblameDelimiter start="(" end="\%(\s\d\+\)\@<=)" contained keepend oneline
   syn match FugitiveblameTime "\<[0-9:/+-][0-9:/+ -]*[0-9:/+-]\%(\s\+\d\+)\)\@=" contained containedin=FugitiveblameAnnotation
   exec 'syn match FugitiveblameLineNumber         "\s[[:digit:][:space:]]\{0,' . (len(line('$'))-1). '\}\d)\@=" contained containedin=FugitiveblameAnnotation' conceal
@@ -7207,7 +7223,7 @@ function! fujjitive#BlameSyntax() abort
   endif
   let seen = {}
   for x in split('01234567890abcdef', '\zs')
-    exe 'syn match FugitiveblameHashGroup'.x '"\%(^\^\=[*?]*\)\@<='.x.'\x\{5,\}\>" nextgroup=FugitiveblameAnnotation,FugitiveblameOriginalLineNumber,fujjitiveblameOriginalFile skipwhite'
+    exe 'syn match FugitiveblameHashGroup'.x '"\%(^\^\=[*?]*\)\@<='.x.'\x\{5,\}\>" nextgroup=FugitiveblameAnnotation,FugitiveblameOriginalLineNumber,FugitiveblameOriginalFile skipwhite'
   endfor
   for lnum in range(1, line('$'))
     let orig_hash = matchstr(getline(lnum), '^\^\=[*?]*\zs\x\{6\}')
@@ -7734,7 +7750,8 @@ endfunction
 
 function! s:SquashArgument(...) abort
   if &filetype == 'fujjitive'
-    let commit = matchstr(getline('.'), '^\S\+\s\+\zs[k-z]\{4,\}\ze \|^[k-z]\{4,\}\ze \|^' . s:ref_header . ': \zs\S\+')
+    let commit = matchstr(getline('.'), '^\S\+\s\+\zs[k-z\xc2\xb7]\{4,\}\ze \|^[k-z\xc2\xb7]\{4,\}\ze \|^' . s:ref_header . ': \zs\S\+')
+    let commit = substitute(commit, "\xc2\xb7", '', 'g')
   elseif has_key(s:temp_files, s:cpath(expand('%:p')))
     let commit = matchstr(getline('.'), '\S\@<!\%([k-z]\{4,\}\|\x\{4,\}\)\S\@!')
   else

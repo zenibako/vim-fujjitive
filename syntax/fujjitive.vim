@@ -8,8 +8,8 @@ syn spell notoplevel
 syn include @fujjitiveDiff syntax/diff.vim
 
 syn match fujjitiveHeader /^[A-Z][a-z][^:]*:/
-syn match fujjitiveHeader /^Working copy:/ nextgroup=fujjitiveHash,fujjitiveSymbolicRef skipwhite
-syn match fujjitiveHeader /^Parent:/ nextgroup=fujjitiveHash,fujjitiveSymbolicRef skipwhite
+syn match fujjitiveHeader /^Working copy:/ nextgroup=fujjitiveHash,fujjitiveChangeId,fujjitiveSymbolicRef skipwhite
+syn match fujjitiveHeader /^Parent:/ nextgroup=fujjitiveHash,fujjitiveChangeId,fujjitiveSymbolicRef skipwhite
 syn match fujjitiveHelpHeader /^Help:/ nextgroup=fujjitiveHelpTag skipwhite
 syn match fujjitiveHelpTag    /\S\+/ contained
 
@@ -17,21 +17,29 @@ syn region fujjitiveSection start=/^\%(.*(\d\++\=)$\)\@=/ contains=fujjitiveHead
 syn cluster fujjitiveSection contains=fujjitiveSection
 syn match fujjitiveHeading /^[A-Z][a-z][^:]*\ze (\d\++\=)$/ contains=fujjitivePreposition contained nextgroup=fujjitiveCount skipwhite
 syn match fujjitiveCount /(\d\++\=)/hs=s+1,he=e-1 contained
-syn match fujjitivePreposition /\<\%([io]nto\|from\|to\|Rebasing\%( detached\)\=\)\>/ transparent contained nextgroup=fujjitiveHash,fujjitiveSymbolicRef skipwhite
+syn match fujjitivePreposition /\<\%([io]nto\|from\|to\|Rebasing\%( detached\)\=\)\>/ transparent contained nextgroup=fujjitiveHash,fujjitiveChangeId,fujjitiveSymbolicRef skipwhite
 
-syn match fujjitiveInstruction /^\l\l\+\>/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash skipwhite
-syn match fujjitiveDone /^done\>/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash skipwhite
-syn match fujjitiveStop /^stop\>/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash skipwhite
+syn match fujjitiveInstruction /^\l\l\+\>/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash,fujjitiveChangeId skipwhite
+syn match fujjitiveDone /^done\>/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash,fujjitiveChangeId skipwhite
+syn match fujjitiveStop /^stop\>/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash,fujjitiveChangeId skipwhite
 syn match fujjitiveModifier /^[MADRCU?]\{1,2} / contained containedin=@fujjitiveSection
 syn match fujjitiveSymbolicRef /\.\@!\%(\.\.\@!\|[^[:space:][:cntrl:]\:.]\)\+\.\@<!/ contained
+
+" Hex commit hashes (git-style, [0-9a-f])
 syn match fujjitiveHash /^\x\{4,\}\S\@!/ contained containedin=@fujjitiveSection
-syn match fujjitiveHash /^[k-z]\{4,\}\S\@!/ contained containedin=@fujjitiveSection
 syn match fujjitiveHash /\S\@<!\x\{4,\}\S\@!/ contained
-syn match fujjitiveHash /\S\@<![k-z]\{4,\}\S\@!/ contained
+
+" JJ change IDs ([k-z]) with concealed · separator between unique prefix and rest.
+" The prefix is emphasized; the rest is muted.
+syn match fujjitiveChangeId /^[k-z]\+\ze\xc2\xb7/ contained containedin=@fujjitiveSection nextgroup=fujjitiveChangeIdSep
+syn match fujjitiveChangeId /\S\@<![k-z]\+\ze\xc2\xb7/ contained nextgroup=fujjitiveChangeIdSep
+syn match fujjitiveChangeIdSep /\xc2\xb7/ contained conceal nextgroup=fujjitiveChangeIdRest
+syn match fujjitiveChangeIdRest /[k-z]\+/ contained
 
 syn region fujjitiveHunk start=/^\%(@@\+ -\)\@=/ end=/^\%([A-Za-z?@]\|$\)\@=/ contains=diffLine,diffRemoved,diffAdded,diffNoEOL containedin=@fujjitiveSection fold
 
-" Sections with simple single-word names
+" Named sections — each gets a region, modifier, cluster entry, and heading.
+" Sections with simple single-word names that share a generic heading pattern.
 for s:section in ['Untracked', 'Unpushed', 'Unpulled']
   exe 'syn region fujjitive' . s:section . 'Section start=/^\%(' . s:section . ' .*(\d\++\=)$\)\@=/ contains=fujjitive' . s:section . 'Heading end=/^$/ fold'
   exe 'syn match fujjitive' . s:section . 'Modifier /^[MADRCU?] / contained containedin=fujjitive' . s:section . 'Section'
@@ -40,30 +48,21 @@ for s:section in ['Untracked', 'Unpushed', 'Unpulled']
 endfor
 unlet s:section
 
-" 'Changes' section (display label for the internal 'Unstaged' key)
-syn region fujjitiveWorkingCopySection start=/^\%(Changes .*(\d\++\=)$\)\@=/ contains=fujjitiveWorkingCopyHeading end=/^$/ fold
-syn match fujjitiveWorkingCopyModifier /^[MADRCU?] / contained containedin=fujjitiveWorkingCopySection
-syn cluster fujjitiveSection add=fujjitiveWorkingCopySection
-syn match fujjitiveWorkingCopyHeading /^Changes\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
+" Sections with fixed display labels that need explicit heading patterns.
+" Each entry is [InternalName, 'Display label'].
+for [s:name, s:label] in [['WorkingCopy', 'Changes'], ['Ancestors', 'Ancestors'], ['OtherMutable', 'Other mutable']]
+  exe 'syn region fujjitive' . s:name . 'Section start=/^\%(' . s:label . ' .*(\d\++\=)$\)\@=/ contains=fujjitive' . s:name . 'Heading end=/^$/ fold'
+  exe 'syn match fujjitive' . s:name . 'Modifier /^[MADRCU?] / contained containedin=fujjitive' . s:name . 'Section'
+  exe 'syn cluster fujjitiveSection add=fujjitive' . s:name . 'Section'
+  exe 'syn match fujjitive' . s:name . 'Heading /^' . s:label . '\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite'
+endfor
+unlet s:name s:label
 
-" 'Ancestors' section — mutable ancestors of the working copy (excluding @)
-syn region fujjitiveAncestorsSection start=/^\%(Ancestors .*(\d\++\=)$\)\@=/ contains=fujjitiveAncestorsHeading end=/^$/ fold
-syn match fujjitiveAncestorsModifier /^[MADRCU?] / contained containedin=fujjitiveAncestorsSection
-syn cluster fujjitiveSection add=fujjitiveAncestorsSection
-syn match fujjitiveAncestorsHeading /^Ancestors\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
-
-" 'Other mutable' section — mutable changes not on the current branch
-syn region fujjitiveOtherMutableSection start=/^\%(Other mutable .*(\d\++\=)$\)\@=/ contains=fujjitiveOtherMutableHeading end=/^$/ fold
-syn match fujjitiveOtherMutableModifier /^[MADRCU?] / contained containedin=fujjitiveOtherMutableSection
-syn cluster fujjitiveSection add=fujjitiveOtherMutableSection
-syn match fujjitiveOtherMutableHeading /^Other mutable\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
-
-" 'Bookmarks' section — local and unsynced remote bookmarks and their targets
+" Bookmarks section — has bookmark-name matching instead of a file modifier.
 syn region fujjitiveBookmarksSection start=/^\%(Bookmarks .*(\d\++\=)$\)\@=/ contains=fujjitiveBookmarksHeading end=/^$/ fold
 syn cluster fujjitiveSection add=fujjitiveBookmarksSection
 syn match fujjitiveBookmarksHeading /^Bookmarks\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
-" Bookmark name is the first word on entry lines (not the heading) within the section
-syn match fujjitiveBookmarkName /^\S\+/ contained containedin=fujjitiveBookmarksSection nextgroup=fujjitiveHash skipwhite
+syn match fujjitiveBookmarkName /^\S\+/ contained containedin=fujjitiveBookmarksSection nextgroup=fujjitiveChangeId,fujjitiveHash skipwhite
 
 " Markers for jj-specific commit metadata in log sections
 syn match fujjitiveEmpty /(empty)/ contained containedin=@fujjitiveSection
@@ -87,6 +86,8 @@ hi def link fujjitiveWorkingCopyModifier Structure
 hi def link fujjitiveInstruction Type
 hi def link fujjitiveStop Function
 hi def link fujjitiveHash Identifier
+hi def link fujjitiveChangeId Identifier
+hi def link fujjitiveChangeIdRest Comment
 hi def link fujjitiveSymbolicRef Function
 hi def link fujjitiveCount Number
 hi def link fujjitiveEmpty Comment
