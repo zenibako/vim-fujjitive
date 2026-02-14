@@ -3785,8 +3785,9 @@ function! fujjitive#Command(line1, line2, range, bang, mods, arg, ...) abort
     let pager = fujjitive#PagerFor(args, config)
   endif
   let wants_terminal = type(pager) ==# type('') ||
-        \ (s:HasOpt(args, ['split', 'diffedit', 'resolve'], '') ||
-        \ s:HasOpt(args, ['commit', 'describe'], '-i', '--interactive')) && pager is# 0
+        \ (s:HasOpt(args, ['split', 'diffedit', 'resolve'], '-i', '--interactive', '--tool') ||
+        \ s:HasOpt(args, ['commit', 'describe'], '-i', '--interactive') ||
+        \ (get(args, 0, '') ==# 'split' && index(args, '--') == -1)) && pager is# 0
   if wants_terminal
     let mods = substitute(s:Mods(a:mods), '\<tab\>', '-tab', 'g')
     let assign = len(dir) ? "|call FujjitiveDetect({'jj_dir':" . string(options.jj_dir) . '})' : ''
@@ -4875,12 +4876,12 @@ function! s:StageDiff(diff) abort
   let prefix = info.offset > 0 ? '+' . info.offset : ''
   if info.submodule =~# '^S'
     if info.submodule =~# '^SC'
-      return 'JJ --paginate diff --no-ext-diff --submodule=log -- ' . info.paths[0]
+      return 'JJ --paginate diff -- ' . info.paths[0]
     else
-      return 'JJ --paginate diff --no-ext-diff --submodule=diff -- ' . info.paths[0]
+      return 'JJ --paginate diff -- ' . info.paths[0]
     endif
   elseif empty(info.paths)
-    return 'JJ --paginate diff --no-ext-diff'
+    return 'JJ --paginate diff'
   elseif len(info.paths) > 1
     execute 'Gedit' . prefix s:fnameescape(':0:' . info.paths[0])
     return 'keepalt ' . a:diff . '! @:'.s:fnameescape(info.paths[1])
@@ -4896,7 +4897,7 @@ endfunction
 function! s:StageDiffEdit() abort
   let info = s:StageInfo(line('.'))
   let arg = (empty(info.paths) ? s:Tree() : info.paths[0])
-  return 'JJ --paginate diff --no-ext-diff '.s:fnameescape(arg)
+  return 'JJ --paginate diff '.s:fnameescape(arg)
 endfunction
 
 function! s:StageApply(info, reverse, extra) abort
@@ -5452,7 +5453,7 @@ function! s:ToolStream(line1, line2, range, bang, mods, options, args, state) ab
   let a:state.from = ''
   let a:state.to = ''
   let exec = s:UserCommandList({'git': a:options.git, 'jj_dir': a:options.jj_dir})
-  let exec += a:options.flags + ['diff', '--no-ext-diff', '--no-color', '--no-prefix'] + argv
+  let exec += a:options.flags + ['diff', '--git', '--color=never'] + argv
   if prompt
     let title = ':JJ ' . s:fnameescape(a:options.flags + [a:options.subcommand] + a:options.subcommand_args)
     return s:QuickfixStream(get(a:options, 'curwin') && a:line2 < 0 ? 0 : a:line2, 'difftool', title, exec, !a:bang, a:mods, s:function('s:ToolParse'), a:state)

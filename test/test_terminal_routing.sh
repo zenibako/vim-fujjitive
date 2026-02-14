@@ -136,10 +136,9 @@ let HasOpt = SFunc('HasOpt')
 let args = ['split', '--interactive']
 let pager = 0
 
-let wants_terminal =
-      \ (call(HasOpt, [args, ['add', 'checkout', 'commit', 'reset', 'restore', 'stage', 'restore'], '-p', '--patch']) ||
-      \ call(HasOpt, [args, ['add', 'clean', 'stage'], '-i', '--interactive']) ||
-      \ call(HasOpt, [args, ['split'], '-i', '--interactive', '--tool']) ||
+let wants_terminal = type(pager) ==# type('') ||
+      \ (call(HasOpt, [args, ['split', 'diffedit', 'resolve'], '-i', '--interactive', '--tool']) ||
+      \ call(HasOpt, [args, ['commit', 'describe'], '-i', '--interactive']) ||
       \ (get(args, 0, '') ==# 'split' && index(args, '--') == -1)) && pager is# 0
 
 if !wants_terminal
@@ -160,10 +159,9 @@ let HasOpt = SFunc('HasOpt')
 let args = ['split']
 let pager = 0
 
-let wants_terminal =
-      \ (call(HasOpt, [args, ['add', 'checkout', 'commit', 'reset', 'restore', 'stage', 'restore'], '-p', '--patch']) ||
-      \ call(HasOpt, [args, ['add', 'clean', 'stage'], '-i', '--interactive']) ||
-      \ call(HasOpt, [args, ['split'], '-i', '--interactive', '--tool']) ||
+let wants_terminal = type(pager) ==# type('') ||
+      \ (call(HasOpt, [args, ['split', 'diffedit', 'resolve'], '-i', '--interactive', '--tool']) ||
+      \ call(HasOpt, [args, ['commit', 'describe'], '-i', '--interactive']) ||
       \ (get(args, 0, '') ==# 'split' && index(args, '--') == -1)) && pager is# 0
 
 if !wants_terminal
@@ -184,10 +182,9 @@ let HasOpt = SFunc('HasOpt')
 let args = ['split', '--', 'file.txt']
 let pager = 0
 
-let wants_terminal =
-      \ (call(HasOpt, [args, ['add', 'checkout', 'commit', 'reset', 'restore', 'stage', 'restore'], '-p', '--patch']) ||
-      \ call(HasOpt, [args, ['add', 'clean', 'stage'], '-i', '--interactive']) ||
-      \ call(HasOpt, [args, ['split'], '-i', '--interactive', '--tool']) ||
+let wants_terminal = type(pager) ==# type('') ||
+      \ (call(HasOpt, [args, ['split', 'diffedit', 'resolve'], '-i', '--interactive', '--tool']) ||
+      \ call(HasOpt, [args, ['commit', 'describe'], '-i', '--interactive']) ||
       \ (get(args, 0, '') ==# 'split' && index(args, '--') == -1)) && pager is# 0
 
 if wants_terminal
@@ -211,9 +208,8 @@ let pager = 'less'
 " When pager is a string (active), wants_terminal should be true because of
 " the type(pager) ==# type('') check — the pager string takes precedence
 let wants_terminal = type(pager) ==# type('') ||
-      \ (call(HasOpt, [args, ['add', 'checkout', 'commit', 'reset', 'restore', 'stage', 'restore'], '-p', '--patch']) ||
-      \ call(HasOpt, [args, ['add', 'clean', 'stage'], '-i', '--interactive']) ||
-      \ call(HasOpt, [args, ['split'], '-i', '--interactive', '--tool']) ||
+      \ (call(HasOpt, [args, ['split', 'diffedit', 'resolve'], '-i', '--interactive', '--tool']) ||
+      \ call(HasOpt, [args, ['commit', 'describe'], '-i', '--interactive']) ||
       \ (get(args, 0, '') ==# 'split' && index(args, '--') == -1)) && pager is# 0
 
 if !wants_terminal
@@ -265,10 +261,9 @@ let HasOpt = SFunc('HasOpt')
 let args = ['split', '--tool', 'meld']
 let pager = 0
 
-let wants_terminal =
-      \ (call(HasOpt, [args, ['add', 'checkout', 'commit', 'reset', 'restore', 'stage', 'restore'], '-p', '--patch']) ||
-      \ call(HasOpt, [args, ['add', 'clean', 'stage'], '-i', '--interactive']) ||
-      \ call(HasOpt, [args, ['split'], '-i', '--interactive', '--tool']) ||
+let wants_terminal = type(pager) ==# type('') ||
+      \ (call(HasOpt, [args, ['split', 'diffedit', 'resolve'], '-i', '--interactive', '--tool']) ||
+      \ call(HasOpt, [args, ['commit', 'describe'], '-i', '--interactive']) ||
       \ (get(args, 0, '') ==# 'split' && index(args, '--') == -1)) && pager is# 0
 
 if !wants_terminal
