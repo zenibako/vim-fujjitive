@@ -3010,7 +3010,7 @@ function! s:StatusRetrieve(bufnr, ...) abort
     let stat.running = stat.status
 
     " Fetch commit log sections for the summary buffer
-    let stat.working_copy_log = s:QueryLog('@', 1, dir)
+    let stat.working_copy_log = s:QueryLog('@', 2, dir)
     let stat.ancestors_log = s:QueryLog('::@- & mutable()', 50, dir)
     let stat.other_mutable_log = s:QueryLog('mutable() ~ ::@', 50, dir)
     " Omit empty revisions with no description from 'Other mutable'
