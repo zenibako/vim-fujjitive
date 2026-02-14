@@ -189,13 +189,17 @@ if empty(commit_line)
   cquit 1
 endif
 
-" Test the regex used by s:StageInfo to extract commit hashes.
-" The change_id may contain a middle-dot separator (U+00B7) so the regex
-" uses \%u00b7 to optionally skip over it.
+" Test the regex used by s:StageCommit to extract commit references.
+" First try hex commit hash (when g:fujjitive_show_commit_id is enabled),
+" then fall back to the change_id prefix (lowercase alpha, valid jj revision).
 let extracted = matchstr(commit_line, '^\%(\%(\x\x\x\)\@!\l\+\%(\%u00b7\l*\)\=\s\+\)\=\zs[0-9a-f]\{4,\}\ze ')
+if empty(extracted)
+  " Fall back to change_id (lowercase alpha prefix)
+  let extracted = matchstr(commit_line, '^\zs\%(\x\x\x\)\@!\l\+\ze\%(\%u00b7\l*\)\= ')
+endif
 
 if empty(extracted)
-  echoerr 'StageInfo commit regex failed to extract hash from: ' . commit_line
+  echoerr 'StageCommit regex failed to extract revision from: ' . commit_line
   cquit 1
 endif
 VIMSCRIPT

@@ -4458,6 +4458,16 @@ function! s:StatusSectionFile(heading, filename) abort
   return get(get(get(get(b:, 'fujjitive_status', {}), 'files', {}), a:heading, {}), a:filename, {})
 endfunction
 
+function! s:StageCommit(line) abort
+  " Try to extract a hex commit hash (when commit_id is shown after change_id)
+  let hash = matchstr(a:line, '^\%(\%(\x\x\x\)\@!\l\+\%(\%u00b7\l*\)\=\s\+\)\=\zs[0-9a-f]\{4,\}\ze ')
+  if !empty(hash)
+    return hash
+  endif
+  " Fall back to the change_id prefix (lowercase alpha, valid jj revision)
+  return matchstr(a:line, '^\zs\%(\x\x\x\)\@!\l\+\ze\%(\%u00b7\l*\)\= ')
+endfunction
+
 function! s:StageInfo(...) abort
   let lnum = a:0 ? a:1 : line('.')
   let sigil = matchstr(getline(lnum), '^[ @\+-]')
@@ -4489,8 +4499,8 @@ function! s:StageInfo(...) abort
         \ 'filename': text,
         \ 'relative': copy(relative),
         \ 'paths': map(copy(relative), 's:Tree() . "/" . v:val'),
-        \ 'commit': matchstr(getline(lnum), '^\%(\%(\x\x\x\)\@!\l\+\%(\%u00b7\l*\)\=\s\+\)\=\zs[0-9a-f]\{4,\}\ze '),
-        \ 'status': matchstr(getline(lnum), '^[A-Z?]\ze \|^\%(\x\x\x\)\@!\l\+\ze [0-9a-f]'),
+        \ 'commit': s:StageCommit(getline(lnum)),
+        \ 'status': matchstr(getline(lnum), '^[A-Z?]\ze \|^\%(\x\x\x\)\@!\l\+\ze [0-9a-f]\|^\%(\x\x\x\)\@!\l\+\ze '),
         \ 'submodule': get(file, 'submodule', ''),
         \ 'index': index}
 endfunction
@@ -4581,6 +4591,13 @@ function! s:Selection(arg1, ...) abort
             \ 'lnum': lnum,
             \ 'commit': matchstr(line, '^\l\+ \zs\x\x\x\+'),
             \ 'status': matchstr(line, '^\l\+'),
+            \ }, template, 'keep'))
+    elseif line =~# '^\%(\x\x\x\)\@!\l\+ '
+      " Change_id without commit_id (g:fujjitive_show_commit_id disabled)
+      call add(results, extend({
+            \ 'lnum': lnum,
+            \ 'commit': matchstr(line, '^\%(\x\x\x\)\@!\l\+'),
+            \ 'status': matchstr(line, '^\%(\x\x\x\)\@!\l\+'),
             \ }, template, 'keep'))
     endif
     let lnum += 1
