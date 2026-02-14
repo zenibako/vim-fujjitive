@@ -7707,9 +7707,9 @@ endfunction
 
 function! s:SquashArgument(...) abort
   if &filetype == 'fujjitive'
-    let commit = matchstr(getline('.'), '^\%(\%(\x\x\x\)\@!\l\+\s\+\)\=\zs[0-9a-f]\{4,\}\ze \|^' . s:ref_header . ': \zs\S\+')
+    let commit = matchstr(getline('.'), '^\S\+\s\+\zs[k-z]\{4,\}\ze \|^[k-z]\{4,\}\ze \|^' . s:ref_header . ': \zs\S\+')
   elseif has_key(s:temp_files, s:cpath(expand('%:p')))
-    let commit = matchstr(getline('.'), '\S\@<!\x\{4,\}\S\@!')
+    let commit = matchstr(getline('.'), '\S\@<!\%([k-z]\{4,\}\|\x\{4,\}\)\S\@!')
   else
     let commit = s:Owner(@%)
   endif
@@ -7840,7 +7840,8 @@ function! s:MapGitOps(is_ftplugin) abort
 
   exe s:Map('n', 'co<Space>', ':JJ edit ', '', ft)
   exe s:Map('n', 'co<CR>', ':JJ edit<CR>', '', ft)
-  exe s:Map('n', 'coo', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
+  exe s:Map('n', 'co', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
+  exe s:Map('n', 'coo', ':echoerr "fujjitive: coo has been replaced by co"<CR>', '<silent><unique>', ft)
   exe s:Map('n', 'co?', ':<C-U>help fujjitive_co<CR>', '<silent>', ft)
 
   exe s:Map('n', 'cb<Space>', ':JJ bookmark ', '', ft)

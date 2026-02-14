@@ -549,7 +549,9 @@ c?                      Show this help.
                                                 *fujjitive_co*
 Checkout/bookmark maps ~
 
-coo                     Edit the commit under the cursor (using `jj edit`).
+co                      Edit the commit under the cursor (using `jj edit`).
+
+coo                     Deprecated in favor of |co|.
 
 cb<Space>               Populate command line with ":JJ bookmark ".
 
