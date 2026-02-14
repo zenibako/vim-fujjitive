@@ -2603,6 +2603,9 @@ endfunction
 
 function! s:FormatLog(dict) abort
   let parts = [get(a:dict, 'change_id_short', a:dict.commit)]
+  if !empty(get(a:dict, 'working_copies', ''))
+    call add(parts, a:dict.working_copies)
+  endif
   if !empty(get(a:dict, 'bookmarks', ''))
     call add(parts, a:dict.bookmarks)
   endif
@@ -2699,6 +2702,7 @@ function! s:QueryLog(revset, limit, dir) abort
         \ . ' ++ commit_id.short(8) ++ "\t"'
         \ . ' ++ bookmarks ++ "\t" ++ if(empty, "empty", "") ++ "\t"'
         \ . ' ++ if(conflict, "conflict", "") ++ "\t"'
+        \ . ' ++ working_copies ++ "\t"'
         \ . ' ++ description.first_line() ++ "\n"'
   let [log, exec_error] = s:LinesError(
         \ ['log', '--no-graph', '-r', a:revset, '--limit', '' . a:limit,
@@ -2713,7 +2717,8 @@ function! s:QueryLog(revset, limit, dir) abort
         \ . ' "bookmarks": get(v:val, 3, ""),'
         \ . ' "empty": get(v:val, 4, "") ==# "empty",'
         \ . ' "conflict": get(v:val, 5, "") ==# "conflict",'
-        \ . ' "subject": get(v:val, 6, "")}')
+        \ . ' "working_copies": get(v:val, 6, ""),'
+        \ . ' "subject": get(v:val, 7, "")}')
   let result = {'error': exec_error ? 1 : 0, 'overflow': 0, 'entries': log}
   if len(log) == a:limit
     call remove(log, -1)
@@ -3037,8 +3042,9 @@ function! s:StatusRetrieve(bufnr, ...) abort
     let stat.working_copy_log = s:QueryLog('@', 2, dir)
     let stat.ancestors_log = s:QueryLog('::@- & mutable()', 50, dir)
     let stat.other_mutable_log = s:QueryLog('mutable() ~ ::@', 50, dir)
-    " Omit empty revisions with no description from 'Other mutable'
-    call filter(stat.other_mutable_log.entries, '!(v:val.empty && empty(v:val.subject))')
+    " Omit empty revisions with no description from 'Other mutable',
+    " but keep workspace working copies.
+    call filter(stat.other_mutable_log.entries, '!(v:val.empty && empty(v:val.subject) && empty(v:val.working_copies))')
     let stat.unpushed_log = s:QueryLog('remote_bookmarks()..bookmarks()', 256, dir)
     let stat.unpulled_log = s:QueryLog('bookmarks()..remote_bookmarks()', 256, dir)
     let stat.bookmarks_list = s:QueryBookmarks(dir)

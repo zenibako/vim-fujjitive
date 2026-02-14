@@ -61,6 +61,9 @@ syn cluster fujjitiveSection add=fujjitiveBookmarksSection
 syn match fujjitiveBookmarksHeading /^Bookmarks\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
 syn match fujjitiveBookmarkName /^\S\+/ contained containedin=fujjitiveBookmarksSection nextgroup=fujjitiveChangeId,fujjitiveHash skipwhite
 
+" Workspace indicators (e.g. default@, agent-2@) in log sections
+syn match fujjitiveWorkspaceName /\S\@<![a-zA-Z0-9_-]\+@\S\@!/ contained containedin=@fujjitiveSection
+
 " Markers for jj-specific commit metadata in log sections
 syn match fujjitiveEmpty /(empty)/ contained containedin=@fujjitiveSection
 syn match fujjitiveConflict /(conflict)/ contained containedin=@fujjitiveSection
@@ -86,6 +89,7 @@ hi def link fujjitiveHash Identifier
 hi def link fujjitiveChangeId Identifier
 hi def link fujjitiveSymbolicRef Function
 hi def link fujjitiveCount Number
+hi def link fujjitiveWorkspaceName Special
 hi def link fujjitiveEmpty Comment
 hi def link fujjitiveConflict WarningMsg
 
