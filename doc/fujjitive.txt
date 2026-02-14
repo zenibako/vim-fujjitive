@@ -510,7 +510,7 @@ cva                     Describe the current change in a new tab (using
 ce                      Squash changes into the parent change without editing
                         the message (using `jj squash`).
 
-cw                      Describe the current change (using `jj describe`).
+cw                      Deprecated in favor of |ca|.
 
 cW                      Describe (reword) the commit under the cursor
                         (using `jj describe`).
@@ -577,8 +577,7 @@ cz?                     Show this help.
                                                 *fujjitive_r*
 Rebase maps ~
 
-rw                      Describe (reword) the commit under the cursor
-                        (using `jj describe`).
+rw                      Deprecated in favor of |cW|.
 
 rm                      Edit the commit under the cursor (using `jj edit`).
 
