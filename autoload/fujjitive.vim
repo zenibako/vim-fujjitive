@@ -2609,7 +2609,12 @@ function! s:FormatLog(dict) abort
 endfunction
 
 function! s:FormatBookmark(dict) abort
-  let parts = [a:dict.name, a:dict.change_id]
+  let name = a:dict.name
+  let remote = get(a:dict, 'remote', '')
+  if !empty(remote)
+    let name .= '@' . remote
+  endif
+  let parts = [name, a:dict.change_id]
   let subject = get(a:dict, 'subject', '')
   if empty(subject)
     call add(parts, '(no description set)')
@@ -2709,20 +2714,26 @@ function! s:QueryLogRange(revset, dir) abort
 endfunction
 
 function! s:QueryBookmarks(dir) abort
-  let template = 'name ++ "\t" ++ normal_target.change_id().short(8) ++ "\t"'
+  let template = 'name ++ "\t" ++ if(self.remote(), self.remote(), "") ++ "\t"'
+        \ . ' ++ self.synced() ++ "\t"'
+        \ . ' ++ normal_target.change_id().short(8) ++ "\t"'
         \ . ' ++ normal_target.commit_id().short(8) ++ "\t"'
         \ . ' ++ if(normal_target.empty(), "empty", "") ++ "\t"'
         \ . ' ++ normal_target.description().first_line() ++ "\n"'
   let [lines, exec_error] = s:LinesError(
-        \ ['bookmark', 'list', '-T', template], a:dir)
+        \ ['bookmark', 'list', '--all-remotes', '-T', template], a:dir)
   call filter(lines, '!empty(v:val)')
   call map(lines, 'split(v:val, "\t", 1)')
   call map(lines, '{"type": "Bookmark",'
         \ . ' "name": v:val[0],'
-        \ . ' "change_id": get(v:val, 1, ""),'
-        \ . ' "commit_id": get(v:val, 2, ""),'
-        \ . ' "empty": get(v:val, 3, "") ==# "empty",'
-        \ . ' "subject": get(v:val, 4, "")}')
+        \ . ' "remote": get(v:val, 1, ""),'
+        \ . ' "synced": get(v:val, 2, "") ==# "true",'
+        \ . ' "change_id": get(v:val, 3, ""),'
+        \ . ' "commit_id": get(v:val, 4, ""),'
+        \ . ' "empty": get(v:val, 5, "") ==# "empty",'
+        \ . ' "subject": get(v:val, 6, "")}')
+  " Hide remote bookmarks that are synced with their local counterpart.
+  call filter(lines, 'empty(v:val.remote) || !v:val.synced')
   return {'error': exec_error ? 1 : 0, 'entries': lines}
 endfunction
 
@@ -7732,6 +7743,9 @@ function! s:BookmarkSetWC() abort
   let name = matchstr(getline('.'), '^\S\+')
   if empty(name)
     return 'echoerr "fujjitive: could not determine bookmark name"'
+  endif
+  if name =~# '@'
+    return 'echoerr "fujjitive: cannot set a remote bookmark (use a local bookmark)"'
   endif
   return 'JJ bookmark set ' . fnameescape(name) . ' -r @'
 endfunction

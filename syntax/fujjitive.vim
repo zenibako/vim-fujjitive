@@ -56,7 +56,7 @@ syn match fujjitiveOtherMutableModifier /^[MADRCU?] / contained containedin=fujj
 syn cluster fujjitiveSection add=fujjitiveOtherMutableSection
 syn match fujjitiveOtherMutableHeading /^Other mutable\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
 
-" 'Bookmarks' section — local bookmarks and their targets
+" 'Bookmarks' section — local and unsynced remote bookmarks and their targets
 syn region fujjitiveBookmarksSection start=/^\%(Bookmarks .*(\d\++\=)$\)\@=/ contains=fujjitiveBookmarksHeading end=/^$/ fold
 syn cluster fujjitiveSection add=fujjitiveBookmarksSection
 syn match fujjitiveBookmarksHeading /^Bookmarks\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
