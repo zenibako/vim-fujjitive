@@ -738,8 +738,9 @@ if get(g:, 'fujjitive_no_maps')
   finish
 endif
 
-function! s:Map(mode, lhs, rhs, flags) abort
+function! s:Map(mode, lhs, rhs, flags, ...) abort
   let flags = a:flags . (a:rhs =~# '<Plug>' ? '' : '<script>') . '<nowait>'
+  let desc = a:0 ? a:1 : ''
   let head = a:lhs
   let tail = ''
   let keys = get(g:, a:mode.'remap', {})
@@ -758,8 +759,15 @@ function! s:Map(mode, lhs, rhs, flags) abort
   endif
   if empty(mapcheck(head.tail, a:mode))
     exe a:mode.'map' flags head.tail a:rhs
+    if !empty(desc) && exists('*mapset')
+      let mapdict = maparg(head.tail, a:mode, 0, 1)
+      if !empty(mapdict)
+        let mapdict.desc = desc
+        call mapset(mapdict)
+      endif
+    endif
   endif
 endfunction
 
-call s:Map('c', '<C-R><C-G>', 'fnameescape(fujjitive#Object(@%))', '<expr>')
-call s:Map('n', 'y<C-G>', ':<C-U>call setreg(v:register, fujjitive#Object(@%))<CR>', '<silent>')
+call s:Map('c', '<C-R><C-G>', 'fnameescape(fujjitive#Object(@%))', '<expr>', 'Fujjitive: Object path')
+call s:Map('n', 'y<C-G>', ':<C-U>call setreg(v:register, fujjitive#Object(@%))<CR>', '<silent>', 'Fujjitive: Yank object path')

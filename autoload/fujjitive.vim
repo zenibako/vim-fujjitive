@@ -285,8 +285,11 @@ function! s:Map(mode, lhs, rhs, ...) abort
   let flags = a:0 && type(a:1) == type('') ? a:1 : ''
   let defer = flags =~# '<unique>'
   let flags = substitute(flags, '<unique>', '', '') . (a:rhs =~# '<Plug>' ? '' : '<script>') . '<nowait>'
+  let has_ftplugin = a:0 >= 2 && a:2
+  let desc = a:0 >= 3 ? a:3 : ''
+  let applied_maps = []
   for mode in split(a:mode, '\zs')
-    if a:0 <= 1
+    if !has_ftplugin
       call add(maps, mode.'map <buffer>' . substitute(flags, '<unique>', '', '') . ' <Plug>fujjitive:' . a:lhs . ' ' . a:rhs)
     endif
     let skip = 0
@@ -307,13 +310,23 @@ function! s:Map(mode, lhs, rhs, ...) abort
     endwhile
     if !skip && (!defer || empty(mapcheck(head.tail, mode)))
       call add(maps, mode.'map <buffer>' . flags . ' ' . head.tail . ' ' . a:rhs)
-      if a:0 > 1 && a:2
+      call add(applied_maps, [mode, head.tail])
+      if has_ftplugin
         let b:undo_ftplugin = get(b:, 'undo_ftplugin', 'exe') .
               \ '|sil! exe "' . mode . 'unmap <buffer> ' . head.tail . '"'
       endif
     endif
   endfor
   exe join(maps, '|')
+  if !empty(desc) && exists('*mapset')
+    for [mode, lhs] in applied_maps
+      let mapdict = maparg(lhs, mode, 0, 1)
+      if !empty(mapdict)
+        let mapdict.desc = desc
+        call mapset(mapdict)
+      endif
+    endfor
+  endif
   return ''
 endfunction
 
@@ -2769,56 +2782,51 @@ let s:rebase_abbrevs = {
 
 function! s:MapStatus() abort
   call fujjitive#MapJumps()
-  call s:Map('n', '-', ":<C-U>execute <SID>Do('Toggle',0)<CR>", '<silent>')
-  call s:Map('x', '-', ":<C-U>execute <SID>Do('Toggle',1)<CR>", '<silent>')
-  " s = split: use jj split to move file into a new change (similar to staging)
-  call s:Map('n', 's', ":<C-U>execute <SID>Do('Split',0)<CR>", '<silent>')
-  call s:Map('x', 's', ":<C-U>execute <SID>Do('Split',1)<CR>", '<silent>')
-  " u = unsplit: use jj squash to move file back (similar to unstaging)
-  call s:Map('n', 'u', ":<C-U>execute <SID>Do('Squash',0)<CR>", '<silent>')
-  call s:Map('x', 'u', ":<C-U>execute <SID>Do('Squash',1)<CR>", '<silent>')
-  " U = restore all changes (discard working copy changes)
-  call s:Map('n', 'U', ":<C-U>JJ restore<CR>", '<silent>')
-  call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Working copy changes')")
-  call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Working copy changes', 'Untracked')")
-  call s:MapMotion('gc', "exe <SID>StageJump(v:count, 'Ancestors')")
-  call s:MapMotion('gm', "exe <SID>StageJump(v:count, 'Other mutable')")
-  call s:MapMotion('gb', "exe <SID>StageJump(v:count, 'Bookmarks')")
-  call s:MapMotion('gp', "exe <SID>StageJump(v:count, 'Unpushed')")
-  call s:MapMotion('gP', "exe <SID>StageJump(v:count, 'Unpulled')")
-  call s:Map('n', 'C', ":echoerr 'fujjitive: C has been removed in favor of cc'<CR>", '<silent><unique>')
-  call s:Map('n', 'i', ":<C-U>execute <SID>NextExpandedHunk(v:count1)<CR>", '<silent>')
-  call s:Map('n', "=", ":<C-U>execute <SID>StageInline('toggle',line('.'),v:count)<CR>", '<silent>')
-  call s:Map('n', "<", ":<C-U>execute <SID>StageInline('hide',  line('.'),v:count)<CR>", '<silent>')
-  call s:Map('n', ">", ":<C-U>execute <SID>StageInline('show',  line('.'),v:count)<CR>", '<silent>')
-  call s:Map('x', "=", ":<C-U>execute <SID>StageInline('toggle',line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>", '<silent>')
-  call s:Map('x', "<", ":<C-U>execute <SID>StageInline('hide',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>", '<silent>')
-  call s:Map('x', ">", ":<C-U>execute <SID>StageInline('show',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>", '<silent>')
-  call s:Map('n', 'D', ":echoerr 'fujjitive: D has been removed in favor of dd'<CR>", '<silent><unique>')
-  call s:Map('n', 'dd', ":<C-U>execute <SID>StageDiff('Gdiffsplit')<CR>", '<silent>')
-  call s:Map('n', 'dh', ":<C-U>execute <SID>StageDiff('Ghdiffsplit')<CR>", '<silent>')
-  call s:Map('n', 'ds', ":<C-U>execute <SID>StageDiff('Ghdiffsplit')<CR>", '<silent>')
-  call s:Map('n', 'dp', ":<C-U>execute <SID>StageDiffEdit()<CR>", '<silent>')
-  call s:Map('n', 'dv', ":<C-U>execute <SID>StageDiff('Gvdiffsplit')<CR>", '<silent>')
-  call s:Map('n', 'd?', ":<C-U>help fujjitive_d<CR>", '<silent>')
-  " S = interactive split (like jj split --interactive)
-  call s:Map('n', 'S', ":<C-U>execute <SID>StagePatch(line('.'),line('.')+v:count1-1)<CR>", '<silent>')
-  call s:Map('x', 'S', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"))<CR>", '<silent>')
-  call s:Map('n', 'p', ":<C-U>if v:count<Bar>silent exe <SID>GF('pedit')<Bar>else<Bar>echoerr 'Use = for inline diff, S for :JJ split --interactive, 1p for :pedit'<Bar>endif<CR>", '<silent>')
-  call s:Map('x', 'p', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"))<CR>", '<silent>')
-  call s:Map('n', 'I', ":<C-U>execute <SID>StagePatch(line('.'),line('.'), 1)<CR>", '<silent>')
-  call s:Map('x', 'I', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"), 1)<CR>", '<silent>')
-  call s:Map('n', 'gq', ":<C-U>if bufnr('$') == 1<Bar>quit<Bar>else<Bar>bdelete<Bar>endif<CR>", '<silent>')
-  call s:Map('n', 'R', ":echohl WarningMsg<Bar>echo 'Reloading is automatic.  Use :e to force'<Bar>echohl NONE<CR>", '<silent>')
-  call s:Map('n', 'g<Bar>', ":<C-U>echoerr 'Changed to X'<CR>", '<silent><unique>')
-  call s:Map('x', 'g<Bar>', ":<C-U>echoerr 'Changed to X'<CR>", '<silent><unique>')
-  " X = restore (discard changes for file, like jj restore --paths)
-  call s:Map('n', 'X', ":<C-U>execute <SID>StageDelete(line('.'), 0, v:count)<CR>", '<silent>')
-  call s:Map('x', 'X', ":<C-U>execute <SID>StageDelete(line(\"'<\"), line(\"'>\"), v:count)<CR>", '<silent>')
-  call s:Map('n', 'gI', ":<C-U>execute <SID>StageIgnore(line('.'), line('.'), v:count)<CR>", '<silent>')
-  call s:Map('x', 'gI', ":<C-U>execute <SID>StageIgnore(line(\"'<\"), line(\"'>\"), v:count)<CR>", '<silent>')
-  call s:Map('n', '.', ':<C-U> <C-R>=<SID>StageArgs(0)<CR><Home>')
-  call s:Map('x', '.', ':<C-U> <C-R>=<SID>StageArgs(1)<CR><Home>')
+  call s:Map('n', '-', ":<C-U>execute <SID>Do('Toggle',0)<CR>", '<silent>', 0, 'Toggle split/squash')
+  call s:Map('x', '-', ":<C-U>execute <SID>Do('Toggle',1)<CR>", '<silent>', 0, 'Toggle split/squash')
+  call s:Map('n', 's', ":<C-U>execute <SID>Do('Split',0)<CR>", '<silent>', 0, 'Split (stage) file')
+  call s:Map('x', 's', ":<C-U>execute <SID>Do('Split',1)<CR>", '<silent>', 0, 'Split (stage) selection')
+  call s:Map('n', 'u', ":<C-U>execute <SID>Do('Squash',0)<CR>", '<silent>', 0, 'Squash (unstage) file')
+  call s:Map('x', 'u', ":<C-U>execute <SID>Do('Squash',1)<CR>", '<silent>', 0, 'Squash (unstage) selection')
+  call s:Map('n', 'U', ":<C-U>JJ restore<CR>", '<silent>', 0, 'Restore all (discard changes)')
+  call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Working copy changes')", 'Jump to Untracked section')
+  call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Working copy changes', 'Untracked')", 'Jump to Working copy section')
+  call s:MapMotion('gc', "exe <SID>StageJump(v:count, 'Ancestors')", 'Jump to Ancestors section')
+  call s:MapMotion('gm', "exe <SID>StageJump(v:count, 'Other mutable')", 'Jump to Other mutable section')
+  call s:MapMotion('gb', "exe <SID>StageJump(v:count, 'Bookmarks')", 'Jump to Bookmarks section')
+  call s:MapMotion('gp', "exe <SID>StageJump(v:count, 'Unpushed')", 'Jump to Unpushed section')
+  call s:MapMotion('gP', "exe <SID>StageJump(v:count, 'Unpulled')", 'Jump to Unpulled section')
+  call s:Map('n', 'C', ":echoerr 'fujjitive: C has been removed in favor of cc'<CR>", '<silent><unique>', 0, 'Commit (removed, use cc)')
+  call s:Map('n', 'i', ":<C-U>execute <SID>NextExpandedHunk(v:count1)<CR>", '<silent>', 0, 'Next expanded hunk')
+  call s:Map('n', "=", ":<C-U>execute <SID>StageInline('toggle',line('.'),v:count)<CR>", '<silent>', 0, 'Toggle inline diff')
+  call s:Map('n', "<", ":<C-U>execute <SID>StageInline('hide',  line('.'),v:count)<CR>", '<silent>', 0, 'Hide inline diff')
+  call s:Map('n', ">", ":<C-U>execute <SID>StageInline('show',  line('.'),v:count)<CR>", '<silent>', 0, 'Show inline diff')
+  call s:Map('x', "=", ":<C-U>execute <SID>StageInline('toggle',line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>", '<silent>', 0, 'Toggle inline diff')
+  call s:Map('x', "<", ":<C-U>execute <SID>StageInline('hide',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>", '<silent>', 0, 'Hide inline diff')
+  call s:Map('x', ">", ":<C-U>execute <SID>StageInline('show',  line(\"'<\"),line(\"'>\")-line(\"'<\")+1)<CR>", '<silent>', 0, 'Show inline diff')
+  call s:Map('n', 'D', ":echoerr 'fujjitive: D has been removed in favor of dd'<CR>", '<silent><unique>', 0, 'Diff (removed, use dd)')
+  call s:Map('n', 'dd', ":<C-U>execute <SID>StageDiff('Gdiffsplit')<CR>", '<silent>', 0, 'Diff split')
+  call s:Map('n', 'dh', ":<C-U>execute <SID>StageDiff('Ghdiffsplit')<CR>", '<silent>', 0, 'Diff split (horizontal)')
+  call s:Map('n', 'ds', ":<C-U>execute <SID>StageDiff('Ghdiffsplit')<CR>", '<silent>', 0, 'Diff split (horizontal)')
+  call s:Map('n', 'dp', ":<C-U>execute <SID>StageDiffEdit()<CR>", '<silent>', 0, 'Diff edit')
+  call s:Map('n', 'dv', ":<C-U>execute <SID>StageDiff('Gvdiffsplit')<CR>", '<silent>', 0, 'Diff split (vertical)')
+  call s:Map('n', 'd?', ":<C-U>help fujjitive_d<CR>", '<silent>', 0, 'Diff help')
+  call s:Map('n', 'S', ":<C-U>execute <SID>StagePatch(line('.'),line('.')+v:count1-1)<CR>", '<silent>', 0, 'Interactive split')
+  call s:Map('x', 'S', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"))<CR>", '<silent>', 0, 'Interactive split')
+  call s:Map('n', 'p', ":<C-U>if v:count<Bar>silent exe <SID>GF('pedit')<Bar>else<Bar>echoerr 'Use = for inline diff, S for :JJ split --interactive, 1p for :pedit'<Bar>endif<CR>", '<silent>', 0, 'Preview / interactive split')
+  call s:Map('x', 'p', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"))<CR>", '<silent>', 0, 'Interactive split')
+  call s:Map('n', 'I', ":<C-U>execute <SID>StagePatch(line('.'),line('.'), 1)<CR>", '<silent>', 0, 'Interactive split (intent)')
+  call s:Map('x', 'I', ":<C-U>execute <SID>StagePatch(line(\"'<\"),line(\"'>\"), 1)<CR>", '<silent>', 0, 'Interactive split (intent)')
+  call s:Map('n', 'gq', ":<C-U>if bufnr('$') == 1<Bar>quit<Bar>else<Bar>bdelete<Bar>endif<CR>", '<silent>', 0, 'Close status buffer')
+  call s:Map('n', 'R', ":echohl WarningMsg<Bar>echo 'Reloading is automatic.  Use :e to force'<Bar>echohl NONE<CR>", '<silent>', 0, 'Reload (automatic)')
+  call s:Map('n', 'g<Bar>', ":<C-U>echoerr 'Changed to X'<CR>", '<silent><unique>', 0, 'Restore (removed, use X)')
+  call s:Map('x', 'g<Bar>', ":<C-U>echoerr 'Changed to X'<CR>", '<silent><unique>', 0, 'Restore (removed, use X)')
+  call s:Map('n', 'X', ":<C-U>execute <SID>StageDelete(line('.'), 0, v:count)<CR>", '<silent>', 0, 'Discard changes / restore file')
+  call s:Map('x', 'X', ":<C-U>execute <SID>StageDelete(line(\"'<\"), line(\"'>\"), v:count)<CR>", '<silent>', 0, 'Discard changes / restore selection')
+  call s:Map('n', 'gI', ":<C-U>execute <SID>StageIgnore(line('.'), line('.'), v:count)<CR>", '<silent>', 0, 'Add to .gitignore')
+  call s:Map('x', 'gI', ":<C-U>execute <SID>StageIgnore(line(\"'<\"), line(\"'>\"), v:count)<CR>", '<silent>', 0, 'Add to .gitignore')
+  call s:Map('n', '.', ':<C-U> <C-R>=<SID>StageArgs(0)<CR><Home>', '', 0, 'Populate command line')
+  call s:Map('x', '.', ':<C-U> <C-R>=<SID>StageArgs(1)<CR><Home>', '', 0, 'Populate command line')
 endfunction
 
 function! s:StatusProcess(result, stat) abort
@@ -2851,9 +2859,9 @@ function! s:StatusProcess(result, stat) abort
         let line = output[i]
         if line =~# '^Working copy changes:'
           let in_working_copy = 1
-        elseif line =~# '^Working copy\s*\%(([^)]*)\s*\)\=:'
+        elseif line =~# '^Working copy\s*:'
           let stat.props['working_copy'] = matchstr(line, ':\s*\zs.*')
-        elseif line =~# '^Parent commit\s*\%(([^)]*)\s*\)\=:'
+        elseif line =~# '^Parent commit\s*:'
           let stat.props['parent_commit'] = matchstr(line, ':\s*\zs.*')
         elseif in_working_copy && line =~# '^\([MADR]\) '
           let status = line[0]
@@ -3238,8 +3246,8 @@ function! fujjitive#BufReadCmd(...) abort
       let &l:modifiable = modifiable
       call fujjitive#MapJumps()
       if b:fujjitive_type !=# 'blob'
-        call s:Map('n', 'a', ":<C-U>let b:fujjitive_display_format += v:count1<Bar>exe fujjitive#BufReadCmd(@%)<CR>", '<silent>')
-        call s:Map('n', 'i', ":<C-U>let b:fujjitive_display_format -= v:count1<Bar>exe fujjitive#BufReadCmd(@%)<CR>", '<silent>')
+        call s:Map('n', 'a', ":<C-U>let b:fujjitive_display_format += v:count1<Bar>exe fujjitive#BufReadCmd(@%)<CR>", '<silent>', 0, 'Next display format')
+        call s:Map('n', 'i', ":<C-U>let b:fujjitive_display_format -= v:count1<Bar>exe fujjitive#BufReadCmd(@%)<CR>", '<silent>', 0, 'Previous display format')
         setlocal filetype=git
       endif
     endtry
@@ -3344,8 +3352,8 @@ function! s:TempReadPost(file) abort
     endif
     if get(dict, 'filetype', '') ==# 'git'
       call fujjitive#MapJumps()
-      call s:Map('n', '.', ":<C-U> <C-R>=<SID>fnameescape(<SID>TempDotMap())<CR><Home>")
-      call s:Map('x', '.', ":<C-U> <C-R>=<SID>fnameescape(<SID>TempDotMap())<CR><Home>")
+      call s:Map('n', '.', ":<C-U> <C-R>=<SID>fnameescape(<SID>TempDotMap())<CR><Home>", '', 0, 'Populate command line')
+      call s:Map('x', '.', ":<C-U> <C-R>=<SID>fnameescape(<SID>TempDotMap())<CR><Home>", '', 0, 'Populate command line')
     endif
     if has_key(dict, 'filetype')
       if dict.filetype ==# 'man' && has('nvim')
@@ -3358,7 +3366,7 @@ function! s:TempReadPost(file) abort
     endif
     setlocal foldmarker=<<<<<<<<,>>>>>>>>
     if !&modifiable
-      call s:Map('n', 'gq', ":<C-U>bdelete<CR>", '<silent> <unique>')
+      call s:Map('n', 'gq', ":<C-U>bdelete<CR>", '<silent> <unique>', 0, 'Close buffer')
     endif
     return 'doautocmd <nomodeline> User FujjitivePager'
   endif
@@ -6547,19 +6555,19 @@ function! fujjitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
         set equalalways
       endif
       execute mods 'split' s:fnameescape(fujjitive#Find(parents[0]))
-      call s:Map('n', 'dp', ':diffput '.nr.'<Bar>diffupdate<CR>', '<silent>')
+      call s:Map('n', 'dp', ':diffput '.nr.'<Bar>diffupdate<CR>', '<silent>', 0, 'Diff put')
       let nr2 = bufnr('')
       call s:diffthis()
       exe back
-      call s:Map('n', 'd2o', ':diffget '.nr2.'<Bar>diffupdate<CR>', '<silent>')
+      call s:Map('n', 'd2o', ':diffget '.nr2.'<Bar>diffupdate<CR>', '<silent>', 0, 'Diff get from ancestor 2')
       let mods = substitute(mods, '\Cleftabove\|rightbelow\|aboveleft\|belowright', '\=submatch(0) =~# "f" ? "rightbelow" : "leftabove"', '')
       for i in range(len(parents)-1, 1, -1)
         execute mods 'split' s:fnameescape(fujjitive#Find(parents[i]))
-        call s:Map('n', 'dp', ':diffput '.nr.'<Bar>diffupdate<CR>', '<silent>')
+        call s:Map('n', 'dp', ':diffput '.nr.'<Bar>diffupdate<CR>', '<silent>', 0, 'Diff put')
         let nrx = bufnr('')
         call s:diffthis()
         exe back
-        call s:Map('n', 'd' . (i + 2) . 'o', ':diffget '.nrx.'<Bar>diffupdate<CR>', '<silent>')
+        call s:Map('n', 'd' . (i + 2) . 'o', ':diffget '.nrx.'<Bar>diffupdate<CR>', '<silent>', 0, 'Diff get from ancestor ' . (i + 2))
       endfor
       call s:diffthis()
       return post
@@ -7242,26 +7250,26 @@ endfunction
 function! s:BlameMaps(is_ftplugin) abort
   let ft = a:is_ftplugin
   call s:MapGitOps(ft)
-  call s:Map('n', '<F1>', ':help :JJ_blame<CR>', '<silent>', ft)
-  call s:Map('n', 'g?',   ':help :JJ_blame<CR>', '<silent>', ft)
-  call s:Map('n', 'gq',   ':exe <SID>BlameQuit()<CR>', '<silent>', ft)
-  call s:Map('n', '<2-LeftMouse>', ':<C-U>exe <SID>BlameCommit("exe <SID>BlameLeave()<Bar>edit")<CR>', '<silent>', ft)
-  call s:Map('n', '<CR>', ':<C-U>exe <SID>BlameCommit("exe <SID>BlameLeave()<Bar>edit")<CR>', '<silent>', ft)
-  call s:Map('n', '-',    ':<C-U>exe <SID>BlameJump("")<CR>', '<silent>', ft)
-  call s:Map('n', 's',    ':<C-U>exe <SID>BlameJump("")<CR>', '<silent>', ft)
-  call s:Map('n', 'u',    ':<C-U>exe <SID>BlameJump("")<CR>', '<silent>', ft)
-  call s:Map('n', 'P',    ':<C-U>if !v:count<Bar>echoerr "Use ~ (or provide a count)"<Bar>else<Bar>exe <SID>BlameJump("^".v:count1)<Bar>endif<CR>', '<silent>', ft)
-  call s:Map('n', '~',    ':<C-U>exe <SID>BlameJump("~".v:count1)<CR>', '<silent>', ft)
-  call s:Map('n', 'i',    ':<C-U>exe <SID>BlameCommit("exe <SID>BlameLeave()<Bar>edit")<CR>', '<silent>', ft)
-  call s:Map('n', 'o',    ':<C-U>exe <SID>BlameCommit("split")<CR>', '<silent>', ft)
-  call s:Map('n', 'O',    ':<C-U>exe <SID>BlameCommit("tabedit")<CR>', '<silent>', ft)
-  call s:Map('n', 'p',    ':<C-U>exe <SID>BlameCommit("pedit")<CR>', '<silent>', ft)
-  exe s:Map('n', '.',    ":<C-U> <C-R>=substitute(<SID>BlameCommitFileLnum()[0],'^$','@','')<CR><Home>", '', ft)
-  exe s:Map('n', '(',    "-", '', ft)
-  exe s:Map('n', ')',    "+", '', ft)
-  call s:Map('n', 'A',    ":<C-u>exe 'vertical resize '.(<SID>linechars('.\\{-\\}\\ze [0-9:/+-][0-9:/+ -]* \\d\\+)')+1+v:count)<CR>", '<silent>', ft)
-  call s:Map('n', 'C',    ":<C-u>exe 'vertical resize '.(<SID>linechars('^\\S\\+')+1+v:count)<CR>", '<silent>', ft)
-  call s:Map('n', 'D',    ":<C-u>exe 'vertical resize '.(<SID>linechars('.\\{-\\}\\ze\\d\\ze\\s\\+\\d\\+)')+1-v:count)<CR>", '<silent>', ft)
+  call s:Map('n', '<F1>', ':help :JJ_blame<CR>', '<silent>', ft, 'Blame help')
+  call s:Map('n', 'g?',   ':help :JJ_blame<CR>', '<silent>', ft, 'Blame help')
+  call s:Map('n', 'gq',   ':exe <SID>BlameQuit()<CR>', '<silent>', ft, 'Close blame')
+  call s:Map('n', '<2-LeftMouse>', ':<C-U>exe <SID>BlameCommit("exe <SID>BlameLeave()<Bar>edit")<CR>', '<silent>', ft, 'Open commit')
+  call s:Map('n', '<CR>', ':<C-U>exe <SID>BlameCommit("exe <SID>BlameLeave()<Bar>edit")<CR>', '<silent>', ft, 'Open commit')
+  call s:Map('n', '-',    ':<C-U>exe <SID>BlameJump("")<CR>', '<silent>', ft, 'Reblame at commit')
+  call s:Map('n', 's',    ':<C-U>exe <SID>BlameJump("")<CR>', '<silent>', ft, 'Reblame at commit')
+  call s:Map('n', 'u',    ':<C-U>exe <SID>BlameJump("")<CR>', '<silent>', ft, 'Reblame at commit')
+  call s:Map('n', 'P',    ':<C-U>if !v:count<Bar>echoerr "Use ~ (or provide a count)"<Bar>else<Bar>exe <SID>BlameJump("^".v:count1)<Bar>endif<CR>', '<silent>', ft, 'Reblame at parent')
+  call s:Map('n', '~',    ':<C-U>exe <SID>BlameJump("~".v:count1)<CR>', '<silent>', ft, 'Reblame at ancestor')
+  call s:Map('n', 'i',    ':<C-U>exe <SID>BlameCommit("exe <SID>BlameLeave()<Bar>edit")<CR>', '<silent>', ft, 'Open commit')
+  call s:Map('n', 'o',    ':<C-U>exe <SID>BlameCommit("split")<CR>', '<silent>', ft, 'Open commit in split')
+  call s:Map('n', 'O',    ':<C-U>exe <SID>BlameCommit("tabedit")<CR>', '<silent>', ft, 'Open commit in tab')
+  call s:Map('n', 'p',    ':<C-U>exe <SID>BlameCommit("pedit")<CR>', '<silent>', ft, 'Preview commit')
+  exe s:Map('n', '.',    ":<C-U> <C-R>=substitute(<SID>BlameCommitFileLnum()[0],'^$','@','')<CR><Home>", '', ft, 'Populate command line')
+  exe s:Map('n', '(',    "-", '', ft, 'Previous blame line')
+  exe s:Map('n', ')',    "+", '', ft, 'Next blame line')
+  call s:Map('n', 'A',    ":<C-u>exe 'vertical resize '.(<SID>linechars('.\\{-\\}\\ze [0-9:/+-][0-9:/+ -]* \\d\\+)')+1+v:count)<CR>", '<silent>', ft, 'Resize to author column')
+  call s:Map('n', 'C',    ":<C-u>exe 'vertical resize '.(<SID>linechars('^\\S\\+')+1+v:count)<CR>", '<silent>', ft, 'Resize to commit column')
+  call s:Map('n', 'D',    ":<C-u>exe 'vertical resize '.(<SID>linechars('.\\{-\\}\\ze\\d\\ze\\s\\+\\d\\+)')+1-v:count)<CR>", '<silent>', ft, 'Resize to date column')
 endfunction
 
 function! fujjitive#BlameFileType() abort
@@ -7711,11 +7719,11 @@ function! fujjitive#MapCfile(...) abort
   exe 'cnoremap <buffer> <expr> <Plug><cfile>' (a:0 ? a:1 : 'fujjitive#Cfile()')
   let b:undo_ftplugin = get(b:, 'undo_ftplugin', 'exe') . '|sil! exe "cunmap <buffer> <Plug><cfile>"'
   if !exists('g:fujjitive_no_maps')
-    call s:Map('n', 'gf',          '<SID>:find <Plug><cfile><CR>', '<silent><unique>', 1)
-    call s:Map('n', '<C-W>f',     '<SID>:sfind <Plug><cfile><CR>', '<silent><unique>', 1)
-    call s:Map('n', '<C-W><C-F>', '<SID>:sfind <Plug><cfile><CR>', '<silent><unique>', 1)
-    call s:Map('n', '<C-W>gf',  '<SID>:tabfind <Plug><cfile><CR>', '<silent><unique>', 1)
-    call s:Map('c', '<C-R><C-F>', '<Plug><cfile>', '<unique>', 1)
+    call s:Map('n', 'gf',          '<SID>:find <Plug><cfile><CR>', '<silent><unique>', 1, 'Go to file')
+    call s:Map('n', '<C-W>f',     '<SID>:sfind <Plug><cfile><CR>', '<silent><unique>', 1, 'Go to file in split')
+    call s:Map('n', '<C-W><C-F>', '<SID>:sfind <Plug><cfile><CR>', '<silent><unique>', 1, 'Go to file in split')
+    call s:Map('n', '<C-W>gf',  '<SID>:tabfind <Plug><cfile><CR>', '<silent><unique>', 1, 'Go to file in tab')
+    call s:Map('c', '<C-R><C-F>', '<Plug><cfile>', '<unique>', 1, 'Recall cfile')
   endif
 endfunction
 
@@ -7801,11 +7809,12 @@ function! s:HunkPosition(lnum) abort
         \ sigil ==# '-' ? 0 : starts[2] + offsets[' '] + offsets['+']]
 endfunction
 
-function! s:MapMotion(lhs, rhs) abort
+function! s:MapMotion(lhs, rhs, ...) abort
+  let desc = a:0 ? a:1 : ''
   let maps = [
-        \ s:Map('n', a:lhs, ":<C-U>" . a:rhs . "<CR>", "<silent>"),
-        \ s:Map('o', a:lhs, ":<C-U>" . a:rhs . "<CR>", "<silent>"),
-        \ s:Map('x', a:lhs, ":<C-U>exe 'normal! gv'<Bar>" . a:rhs . "<CR>", "<silent>")]
+        \ s:Map('n', a:lhs, ":<C-U>" . a:rhs . "<CR>", "<silent>", 0, desc),
+        \ s:Map('o', a:lhs, ":<C-U>" . a:rhs . "<CR>", "<silent>", 0, desc),
+        \ s:Map('x', a:lhs, ":<C-U>exe 'normal! gv'<Bar>" . a:rhs . "<CR>", "<silent>", 0, desc)]
   call filter(maps, '!empty(v:val)')
   return join(maps, '|')
 endfunction
@@ -7815,147 +7824,147 @@ function! s:MapGitOps(is_ftplugin) abort
   if &modifiable
     return ''
   endif
-  exe s:Map('n', 'c<Space>', ':JJ commit<Space>', '', ft)
-  exe s:Map('n', 'c<CR>', ':JJ commit<CR>', '', ft)
-  exe s:Map('n', 'cv<Space>', ':tab JJ describe<Space>', '', ft)
-  exe s:Map('n', 'cv<CR>', ':tab JJ describe<CR>', '', ft)
-  exe s:Map('n', 'ca', ':<C-U>JJ describe<CR>', '<silent>', ft)
-  exe s:Map('n', 'cc', ':<C-U>JJ commit<CR>', '<silent>', ft)
-  exe s:Map('n', 'ce', ':<C-U>JJ squash<CR>', '<silent>', ft)
-  exe s:Map('n', 'cw', ':echoerr "fujjitive: cw has been removed in favor of ca"<CR>', '<silent><unique>', ft)
-  exe s:Map('n', 'cW', ':<C-U>JJ describe -r <C-R>=<SID>SquashArgument()<CR>', '', ft)
-  exe s:Map('n', 'cva', ':<C-U>tab JJ describe<CR>', '<silent>', ft)
-  exe s:Map('n', 'cvc', ':<C-U>tab JJ describe<CR>', '<silent>', ft)
+  exe s:Map('n', 'c<Space>', ':JJ commit<Space>', '', ft, 'Commit (prompt)')
+  exe s:Map('n', 'c<CR>', ':JJ commit<CR>', '', ft, 'Commit')
+  exe s:Map('n', 'cv<Space>', ':tab JJ describe<Space>', '', ft, 'Describe in tab (prompt)')
+  exe s:Map('n', 'cv<CR>', ':tab JJ describe<CR>', '', ft, 'Describe in tab')
+  exe s:Map('n', 'ca', ':<C-U>JJ describe<CR>', '<silent>', ft, 'Describe (amend message)')
+  exe s:Map('n', 'cc', ':<C-U>JJ commit<CR>', '<silent>', ft, 'Commit')
+  exe s:Map('n', 'ce', ':<C-U>JJ squash<CR>', '<silent>', ft, 'Squash into parent')
+  exe s:Map('n', 'cw', ':echoerr "fujjitive: cw has been removed in favor of ca"<CR>', '<silent><unique>', ft, 'Describe (removed, use ca)')
+  exe s:Map('n', 'cW', ':<C-U>JJ describe -r <C-R>=<SID>SquashArgument()<CR>', '', ft, 'Describe revision (reword)')
+  exe s:Map('n', 'cva', ':<C-U>tab JJ describe<CR>', '<silent>', ft, 'Describe in tab')
+  exe s:Map('n', 'cvc', ':<C-U>tab JJ describe<CR>', '<silent>', ft, 'Describe in tab')
 
-  exe s:Map('n', 'cf', ':<C-U>echoerr "fujjitive: JJ has no fixup commits. Use :JJ squash instead"<CR>', '<silent>', ft)
-  exe s:Map('n', 'cF', ':<C-U>echoerr "fujjitive: JJ has no fixup commits. Use :JJ squash instead"<CR>', '<silent>', ft)
-  exe s:Map('n', 'cs', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft)
-  exe s:Map('n', 'cS', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft)
-  exe s:Map('n', 'cn', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft)
-  exe s:Map('n', 'cA', ':<C-U>echoerr "Use cn"<CR>', '<silent><unique>', ft)
-  exe s:Map('n', 'c?', ':<C-U>help fujjitive_c<CR>', '<silent>', ft)
+  exe s:Map('n', 'cf', ':<C-U>echoerr "fujjitive: JJ has no fixup commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Fixup (N/A, use squash)')
+  exe s:Map('n', 'cF', ':<C-U>echoerr "fujjitive: JJ has no fixup commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Fixup (N/A, use squash)')
+  exe s:Map('n', 'cs', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Squash! (N/A, use squash)')
+  exe s:Map('n', 'cS', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Squash! (N/A, use squash)')
+  exe s:Map('n', 'cn', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Squash! (N/A, use squash)')
+  exe s:Map('n', 'cA', ':<C-U>echoerr "Use cn"<CR>', '<silent><unique>', ft, 'Amend (removed, use cn)')
+  exe s:Map('n', 'c?', ':<C-U>help fujjitive_c<CR>', '<silent>', ft, 'Commit help')
 
-  exe s:Map('n', 'cr<Space>', ':JJ backout ', '', ft)
-  exe s:Map('n', 'cr<CR>', ':JJ backout<CR>', '', ft)
-  exe s:Map('n', 'crc', ':<C-U>JJ backout -r <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'crn', ':<C-U>JJ backout -r <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'cr?', ':<C-U>help fujjitive_cr<CR>', '<silent>', ft)
+  exe s:Map('n', 'cr<Space>', ':JJ backout ', '', ft, 'Backout (prompt)')
+  exe s:Map('n', 'cr<CR>', ':JJ backout<CR>', '', ft, 'Backout')
+  exe s:Map('n', 'crc', ':<C-U>JJ backout -r <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Backout revision')
+  exe s:Map('n', 'crn', ':<C-U>JJ backout -r <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Backout revision')
+  exe s:Map('n', 'cr?', ':<C-U>help fujjitive_cr<CR>', '<silent>', ft, 'Backout help')
 
-  exe s:Map('n', 'cm<Space>', ':JJ new ', '', ft)
-  exe s:Map('n', 'cm<CR>', ':JJ new<CR>', '', ft)
-  exe s:Map('n', 'cmn', ':<C-U>JJ new <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'cmt', ':JJ resolve', '', ft)
-  exe s:Map('n', 'cm?', ':<C-U>help fujjitive_cm<CR>', '<silent>', ft)
+  exe s:Map('n', 'cm<Space>', ':JJ new ', '', ft, 'New change (prompt)')
+  exe s:Map('n', 'cm<CR>', ':JJ new<CR>', '', ft, 'New change')
+  exe s:Map('n', 'cmn', ':<C-U>JJ new <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'New change after revision')
+  exe s:Map('n', 'cmt', ':JJ resolve', '', ft, 'Resolve conflicts')
+  exe s:Map('n', 'cm?', ':<C-U>help fujjitive_cm<CR>', '<silent>', ft, 'New change help')
 
-  exe s:Map('n', 'cz<Space>', ':JJ new ', '', ft)
-  exe s:Map('n', 'cz<CR>', ':JJ new<CR>', '', ft)
-  exe s:Map('n', 'cza', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
-  exe s:Map('n', 'czA', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
-  exe s:Map('n', 'czp', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
-  exe s:Map('n', 'czP', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
-  exe s:Map('n', 'czs', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
-  exe s:Map('n', 'czv', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
-  exe s:Map('n', 'czw', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
-  exe s:Map('n', 'czz', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft)
-  exe s:Map('n', 'cz?', ':<C-U>help fujjitive_cz<CR>', '<silent>', ft)
+  exe s:Map('n', 'cz<Space>', ':JJ new ', '', ft, 'Stash/new change (prompt)')
+  exe s:Map('n', 'cz<CR>', ':JJ new<CR>', '', ft, 'Stash/new change')
+  exe s:Map('n', 'cza', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft, 'Stash apply (N/A)')
+  exe s:Map('n', 'czA', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft, 'Stash apply (N/A)')
+  exe s:Map('n', 'czp', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft, 'Stash pop (N/A)')
+  exe s:Map('n', 'czP', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft, 'Stash pop (N/A)')
+  exe s:Map('n', 'czs', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft, 'Stash show (N/A)')
+  exe s:Map('n', 'czv', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft, 'Stash show (N/A)')
+  exe s:Map('n', 'czw', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft, 'Stash (N/A)')
+  exe s:Map('n', 'czz', ':<C-U>echoerr "fujjitive: JJ has no stash. Use :JJ new to shelve changes"<CR>', '<silent>', ft, 'Stash (N/A)')
+  exe s:Map('n', 'cz?', ':<C-U>help fujjitive_cz<CR>', '<silent>', ft, 'Stash help')
 
-  exe s:Map('n', 'co<Space>', ':JJ edit ', '', ft)
-  exe s:Map('n', 'co<CR>', ':JJ edit<CR>', '', ft)
-  exe s:Map('n', 'co', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'coo', ':echoerr "fujjitive: coo has been replaced by co"<CR>', '<silent><unique>', ft)
-  exe s:Map('n', 'co?', ':<C-U>help fujjitive_co<CR>', '<silent>', ft)
+  exe s:Map('n', 'co<Space>', ':JJ edit ', '', ft, 'Edit revision (prompt)')
+  exe s:Map('n', 'co<CR>', ':JJ edit<CR>', '', ft, 'Edit revision')
+  exe s:Map('n', 'co', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Edit revision')
+  exe s:Map('n', 'coo', ':echoerr "fujjitive: coo has been replaced by co"<CR>', '<silent><unique>', ft, 'Edit (removed, use co)')
+  exe s:Map('n', 'co?', ':<C-U>help fujjitive_co<CR>', '<silent>', ft, 'Edit help')
 
-  exe s:Map('n', 'cb<Space>', ':JJ bookmark ', '', ft)
-  exe s:Map('n', 'cb<CR>', ':JJ bookmark list<CR>', '', ft)
-  exe s:Map('n', 'cB', ':<C-U>execute <SID>BookmarkSetWC()<CR>', '<silent>', ft)
-  exe s:Map('n', 'cb?', ':<C-U>help fujjitive_cb<CR>', '<silent>', ft)
+  exe s:Map('n', 'cb<Space>', ':JJ bookmark ', '', ft, 'Bookmark (prompt)')
+  exe s:Map('n', 'cb<CR>', ':JJ bookmark list<CR>', '', ft, 'List bookmarks')
+  exe s:Map('n', 'cB', ':<C-U>execute <SID>BookmarkSetWC()<CR>', '<silent>', ft, 'Set bookmark on working copy')
+  exe s:Map('n', 'cb?', ':<C-U>help fujjitive_cb<CR>', '<silent>', ft, 'Bookmark help')
 
-  exe s:Map('n', 'r<Space>', ':JJ rebase ', '', ft)
-  exe s:Map('n', 'r<CR>', ':JJ rebase<CR>', '', ft)
-  exe s:Map('n', 'ri', ':<C-U>JJ rebase -r <C-R>=<SID>SquashArgument()<CR> -d ', '', ft)
-  exe s:Map('n', 'rf', ':<C-U>JJ squash --into <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'ru', ':<C-U>JJ rebase -b <C-R>=<SID>SquashArgument()<CR> -d ''trunk()''<CR>', '<silent>', ft)
-  exe s:Map('n', 'rp', ':<C-U>JJ rebase -b <C-R>=<SID>SquashArgument()<CR> -d ''trunk()''<CR>', '<silent>', ft)
-  exe s:Map('n', 'rw', ':echoerr "fujjitive: rw has been removed in favor of cW"<CR>', '<silent><unique>', ft)
-  exe s:Map('n', 'rm', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'rd', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'rk', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'rx', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
-  exe s:Map('n', 'rr', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no continue needed"<CR>', '<silent>', ft)
-  exe s:Map('n', 'rs', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no skip needed"<CR>', '<silent>', ft)
-  exe s:Map('n', 're', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no todo list"<CR>', '<silent>', ft)
-  exe s:Map('n', 'ra', ':<C-U>echoerr "fujjitive: Use :JJ undo to undo the last operation"<CR>', '<silent>', ft)
-  exe s:Map('n', 'r?', ':<C-U>help fujjitive_r<CR>', '<silent>', ft)
+  exe s:Map('n', 'r<Space>', ':JJ rebase ', '', ft, 'Rebase (prompt)')
+  exe s:Map('n', 'r<CR>', ':JJ rebase<CR>', '', ft, 'Rebase')
+  exe s:Map('n', 'ri', ':<C-U>JJ rebase -r <C-R>=<SID>SquashArgument()<CR> -d ', '', ft, 'Rebase revision interactively')
+  exe s:Map('n', 'rf', ':<C-U>JJ squash --into <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Squash into revision (fixup)')
+  exe s:Map('n', 'ru', ':<C-U>JJ rebase -b <C-R>=<SID>SquashArgument()<CR> -d ''trunk()''<CR>', '<silent>', ft, 'Rebase onto trunk')
+  exe s:Map('n', 'rp', ':<C-U>JJ rebase -b <C-R>=<SID>SquashArgument()<CR> -d ''trunk()''<CR>', '<silent>', ft, 'Rebase onto trunk')
+  exe s:Map('n', 'rw', ':echoerr "fujjitive: rw has been removed in favor of cW"<CR>', '<silent><unique>', ft, 'Reword (removed, use cW)')
+  exe s:Map('n', 'rm', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Edit (move to) revision')
+  exe s:Map('n', 'rd', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Abandon revision')
+  exe s:Map('n', 'rk', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Abandon revision')
+  exe s:Map('n', 'rx', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Abandon revision')
+  exe s:Map('n', 'rr', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no continue needed"<CR>', '<silent>', ft, 'Rebase continue (N/A)')
+  exe s:Map('n', 'rs', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no skip needed"<CR>', '<silent>', ft, 'Rebase skip (N/A)')
+  exe s:Map('n', 're', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no todo list"<CR>', '<silent>', ft, 'Rebase edit (N/A)')
+  exe s:Map('n', 'ra', ':<C-U>echoerr "fujjitive: Use :JJ undo to undo the last operation"<CR>', '<silent>', ft, 'Rebase abort (use :JJ undo)')
+  exe s:Map('n', 'r?', ':<C-U>help fujjitive_r<CR>', '<silent>', ft, 'Rebase help')
 endfunction
 
 function! fujjitive#MapJumps(...) abort
   if !&modifiable
     if get(b:, 'fujjitive_type', '') ==# 'blob'
       let blame_tail = '<C-R>=v:count ? " --reverse" : ""<CR><CR>'
-      exe s:Map('n', '<2-LeftMouse>', ':<C-U>0,1JJ ++curwin file annotate' . blame_tail, '<silent>')
-      exe s:Map('n', '<CR>', ':<C-U>0,1JJ ++curwin file annotate' . blame_tail, '<silent>')
-      exe s:Map('n', 'o',    ':<C-U>0,1JJ file annotate' . blame_tail, '<silent>')
-      exe s:Map('n', 'p',    ':<C-U>0,1JJ! file annotate' . blame_tail, '<silent>')
+      exe s:Map('n', '<2-LeftMouse>', ':<C-U>0,1JJ ++curwin file annotate' . blame_tail, '<silent>', 0, 'Open blame')
+      exe s:Map('n', '<CR>', ':<C-U>0,1JJ ++curwin file annotate' . blame_tail, '<silent>', 0, 'Open blame')
+      exe s:Map('n', 'o',    ':<C-U>0,1JJ file annotate' . blame_tail, '<silent>', 0, 'Open blame in split')
+      exe s:Map('n', 'p',    ':<C-U>0,1JJ! file annotate' . blame_tail, '<silent>', 0, 'Preview blame')
       if has('patch-7.4.1898')
-        exe s:Map('n', 'gO',   ':<C-U>vertical 0,1JJ file annotate' . blame_tail, '<silent>')
-        exe s:Map('n', 'O',    ':<C-U>tab 0,1JJ file annotate' . blame_tail, '<silent>')
+        exe s:Map('n', 'gO',   ':<C-U>vertical 0,1JJ file annotate' . blame_tail, '<silent>', 0, 'Open blame in vsplit')
+        exe s:Map('n', 'O',    ':<C-U>tab 0,1JJ file annotate' . blame_tail, '<silent>', 0, 'Open blame in tab')
       else
-        exe s:Map('n', 'gO',   ':<C-U>0,4JJ file annotate' . blame_tail, '<silent>')
-        exe s:Map('n', 'O',    ':<C-U>0,5JJ file annotate' . blame_tail, '<silent>')
+        exe s:Map('n', 'gO',   ':<C-U>0,4JJ file annotate' . blame_tail, '<silent>', 0, 'Open blame in vsplit')
+        exe s:Map('n', 'O',    ':<C-U>0,5JJ file annotate' . blame_tail, '<silent>', 0, 'Open blame in tab')
       endif
 
-      call s:Map('n', 'D', ":echoerr 'fujjitive: D has been removed in favor of dd'<CR>", '<silent><unique>')
-      call s:Map('n', 'dd', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Gdiffsplit!<CR>", '<silent>')
-      call s:Map('n', 'dh', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Ghdiffsplit!<CR>", '<silent>')
-      call s:Map('n', 'ds', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Ghdiffsplit!<CR>", '<silent>')
-      call s:Map('n', 'dv', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Gvdiffsplit!<CR>", '<silent>')
-      call s:Map('n', 'd?', ":<C-U>help fujjitive_d<CR>", '<silent>')
+      call s:Map('n', 'D', ":echoerr 'fujjitive: D has been removed in favor of dd'<CR>", '<silent><unique>', 0, 'Diff (removed, use dd)')
+      call s:Map('n', 'dd', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Gdiffsplit!<CR>", '<silent>', 0, 'Diff split')
+      call s:Map('n', 'dh', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Ghdiffsplit!<CR>", '<silent>', 0, 'Diff split (horizontal)')
+      call s:Map('n', 'ds', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Ghdiffsplit!<CR>", '<silent>', 0, 'Diff split (horizontal)')
+      call s:Map('n', 'dv', ":<C-U>call fujjitive#DiffClose()<Bar>keepalt Gvdiffsplit!<CR>", '<silent>', 0, 'Diff split (vertical)')
+      call s:Map('n', 'd?', ":<C-U>help fujjitive_d<CR>", '<silent>', 0, 'Diff help')
 
     else
-      call s:Map('n', '<2-LeftMouse>', ':<C-U>exe <SID>GF("edit")<CR>', '<silent>')
-      call s:Map('n', '<CR>', ':<C-U>exe <SID>GF("edit")<CR>', '<silent>')
-      call s:Map('n', 'o',    ':<C-U>exe <SID>GF("split")<CR>', '<silent>')
-      call s:Map('n', 'gO',   ':<C-U>exe <SID>GF("vsplit")<CR>', '<silent>')
-      call s:Map('n', 'O',    ':<C-U>exe <SID>GF("tabedit")<CR>', '<silent>')
-      call s:Map('n', 'p',    ':<C-U>exe <SID>GF("pedit")<CR>', '<silent>')
+      call s:Map('n', '<2-LeftMouse>', ':<C-U>exe <SID>GF("edit")<CR>', '<silent>', 0, 'Open file/object')
+      call s:Map('n', '<CR>', ':<C-U>exe <SID>GF("edit")<CR>', '<silent>', 0, 'Open file/object')
+      call s:Map('n', 'o',    ':<C-U>exe <SID>GF("split")<CR>', '<silent>', 0, 'Open in split')
+      call s:Map('n', 'gO',   ':<C-U>exe <SID>GF("vsplit")<CR>', '<silent>', 0, 'Open in vsplit')
+      call s:Map('n', 'O',    ':<C-U>exe <SID>GF("tabedit")<CR>', '<silent>', 0, 'Open in tab')
+      call s:Map('n', 'p',    ':<C-U>exe <SID>GF("pedit")<CR>', '<silent>', 0, 'Open in preview')
 
       if !exists('g:fujjitive_no_maps')
-        call s:Map('n', '<C-P>', ':exe <SID>PreviousItem(v:count1)<Bar>echohl WarningMsg<Bar>echo "CTRL-P is deprecated in favor of ("<Bar>echohl NONE<CR>', '<unique>')
-        call s:Map('n', '<C-N>', ':exe <SID>NextItem(v:count1)<Bar>echohl WarningMsg<Bar>echo "CTRL-N is deprecated in favor of )"<Bar>echohl NONE<CR>', '<unique>')
+        call s:Map('n', '<C-P>', ':exe <SID>PreviousItem(v:count1)<Bar>echohl WarningMsg<Bar>echo "CTRL-P is deprecated in favor of ("<Bar>echohl NONE<CR>', '<unique>', 0, 'Previous item (deprecated)')
+        call s:Map('n', '<C-N>', ':exe <SID>NextItem(v:count1)<Bar>echohl WarningMsg<Bar>echo "CTRL-N is deprecated in favor of )"<Bar>echohl NONE<CR>', '<unique>', 0, 'Next item (deprecated)')
       endif
-      call s:MapMotion('(', 'exe <SID>PreviousItem(v:count1)')
-      call s:MapMotion(')', 'exe <SID>NextItem(v:count1)')
-      call s:MapMotion('K', 'exe <SID>PreviousHunk(v:count1)')
-      call s:MapMotion('J', 'exe <SID>NextHunk(v:count1)')
-      call s:MapMotion('[c', 'exe <SID>PreviousHunk(v:count1)')
-      call s:MapMotion(']c', 'exe <SID>NextHunk(v:count1)')
-      call s:MapMotion('[/', 'exe <SID>PreviousFile(v:count1)')
-      call s:MapMotion(']/', 'exe <SID>NextFile(v:count1)')
-      call s:MapMotion('[m', 'exe <SID>PreviousFile(v:count1)')
-      call s:MapMotion(']m', 'exe <SID>NextFile(v:count1)')
-      call s:MapMotion('[[', 'exe <SID>PreviousSection(v:count1)')
-      call s:MapMotion(']]', 'exe <SID>NextSection(v:count1)')
-      call s:MapMotion('[]', 'exe <SID>PreviousSectionEnd(v:count1)')
-      call s:MapMotion('][', 'exe <SID>NextSectionEnd(v:count1)')
-      call s:Map('no', '*', '<SID>PatchSearchExpr(0)', '<expr>')
-      call s:Map('no', '#', '<SID>PatchSearchExpr(1)', '<expr>')
+      call s:MapMotion('(', 'exe <SID>PreviousItem(v:count1)', 'Previous item')
+      call s:MapMotion(')', 'exe <SID>NextItem(v:count1)', 'Next item')
+      call s:MapMotion('K', 'exe <SID>PreviousHunk(v:count1)', 'Previous hunk')
+      call s:MapMotion('J', 'exe <SID>NextHunk(v:count1)', 'Next hunk')
+      call s:MapMotion('[c', 'exe <SID>PreviousHunk(v:count1)', 'Previous hunk')
+      call s:MapMotion(']c', 'exe <SID>NextHunk(v:count1)', 'Next hunk')
+      call s:MapMotion('[/', 'exe <SID>PreviousFile(v:count1)', 'Previous file')
+      call s:MapMotion(']/', 'exe <SID>NextFile(v:count1)', 'Next file')
+      call s:MapMotion('[m', 'exe <SID>PreviousFile(v:count1)', 'Previous file')
+      call s:MapMotion(']m', 'exe <SID>NextFile(v:count1)', 'Next file')
+      call s:MapMotion('[[', 'exe <SID>PreviousSection(v:count1)', 'Previous section')
+      call s:MapMotion(']]', 'exe <SID>NextSection(v:count1)', 'Next section')
+      call s:MapMotion('[]', 'exe <SID>PreviousSectionEnd(v:count1)', 'Previous section end')
+      call s:MapMotion('][', 'exe <SID>NextSectionEnd(v:count1)', 'Next section end')
+      call s:Map('no', '*', '<SID>PatchSearchExpr(0)', '<expr>', 0, 'Search for patch')
+      call s:Map('no', '#', '<SID>PatchSearchExpr(1)', '<expr>', 0, 'Search for patch (reverse)')
     endif
-    call s:Map('n', 'S',    ':<C-U>echoerr "Use gO"<CR>', '<silent><unique>')
-    call s:Map('n', 'dq', ":<C-U>call fujjitive#DiffClose()<CR>", '<silent>')
-    call s:Map('n', '-', ":<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>NavigateUp(v:count1))<Bar> if getline(1) =~# '^tree \x\{40,\}$' && empty(getline(2))<Bar>call search('^'.escape(expand('#:t'),'.*[]~\').'/\=$','wc')<Bar>endif<CR>", '<silent>')
-    call s:Map('n', 'P',     ":<C-U>if !v:count<Bar>echoerr 'Use ~ (or provide a count)'<Bar>else<Bar>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit().'^'.v:count1.<SID>Relative(':'))<Bar>endif<CR>", '<silent>')
-    call s:Map('n', '~',     ":<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit().'~'.v:count1.<SID>Relative(':'))<CR>", '<silent>')
-    call s:Map('n', 'C',     ":<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>", '<silent>')
-    call s:Map('n', 'cp',    ":<C-U>echoerr 'Use gC'<CR>", '<silent><unique>')
-    call s:Map('n', 'gC',    ":<C-U>exe 'Gpedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>", '<silent>')
-    call s:Map('n', 'gc',    ":<C-U>exe 'Gpedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>", '<silent>')
-    call s:Map('n', 'gi',    ":<C-U>exe 'Gsplit' (v:count ? '.gitignore' : '.jj/info/exclude')<CR>", '<silent>')
-    call s:Map('x', 'gi',    ":<C-U>exe 'Gsplit' (v:count ? '.gitignore' : '.jj/info/exclude')<CR>", '<silent>')
+    call s:Map('n', 'S',    ':<C-U>echoerr "Use gO"<CR>', '<silent><unique>', 0, 'Split (removed, use gO)')
+    call s:Map('n', 'dq', ":<C-U>call fujjitive#DiffClose()<CR>", '<silent>', 0, 'Close diff')
+    call s:Map('n', '-', ":<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>NavigateUp(v:count1))<Bar> if getline(1) =~# '^tree \x\{40,\}$' && empty(getline(2))<Bar>call search('^'.escape(expand('#:t'),'.*[]~\').'/\=$','wc')<Bar>endif<CR>", '<silent>', 0, 'Navigate up')
+    call s:Map('n', 'P',     ":<C-U>if !v:count<Bar>echoerr 'Use ~ (or provide a count)'<Bar>else<Bar>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit().'^'.v:count1.<SID>Relative(':'))<Bar>endif<CR>", '<silent>', 0, 'Open in parent commit')
+    call s:Map('n', '~',     ":<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit().'~'.v:count1.<SID>Relative(':'))<CR>", '<silent>', 0, 'Open in ancestor commit')
+    call s:Map('n', 'C',     ":<C-U>exe 'Gedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>", '<silent>', 0, 'Open containing commit')
+    call s:Map('n', 'cp',    ":<C-U>echoerr 'Use gC'<CR>", '<silent><unique>', 0, 'Preview commit (removed, use gC)')
+    call s:Map('n', 'gC',    ":<C-U>exe 'Gpedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>", '<silent>', 0, 'Preview containing commit')
+    call s:Map('n', 'gc',    ":<C-U>exe 'Gpedit ' . <SID>fnameescape(<SID>ContainingCommit())<CR>", '<silent>', 0, 'Preview containing commit')
+    call s:Map('n', 'gi',    ":<C-U>exe 'Gsplit' (v:count ? '.gitignore' : '.jj/info/exclude')<CR>", '<silent>', 0, 'Open .gitignore / exclude')
+    call s:Map('x', 'gi',    ":<C-U>exe 'Gsplit' (v:count ? '.gitignore' : '.jj/info/exclude')<CR>", '<silent>', 0, 'Open .gitignore / exclude')
 
-    call s:Map('n', '.',     ":<C-U> <C-R>=<SID>fnameescape(fujjitive#Real(@%))<CR><Home>")
-    call s:Map('x', '.',     ":<C-U> <C-R>=<SID>fnameescape(fujjitive#Real(@%))<CR><Home>")
-    call s:Map('n', 'g?',    ":<C-U>help fujjitive-maps<CR>", '<silent>')
-    call s:Map('n', '<F1>',  ":<C-U>help fujjitive-maps<CR>", '<silent>')
+    call s:Map('n', '.',     ":<C-U> <C-R>=<SID>fnameescape(fujjitive#Real(@%))<CR><Home>", '', 0, 'Populate command line')
+    call s:Map('x', '.',     ":<C-U> <C-R>=<SID>fnameescape(fujjitive#Real(@%))<CR><Home>", '', 0, 'Populate command line')
+    call s:Map('n', 'g?',    ":<C-U>help fujjitive-maps<CR>", '<silent>', 0, 'Help')
+    call s:Map('n', '<F1>',  ":<C-U>help fujjitive-maps<CR>", '<silent>', 0, 'Help')
   endif
 
   let old_browsex = maparg('<Plug>NetrwBrowseX', 'n')
