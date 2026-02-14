@@ -323,7 +323,7 @@ function! s:Map(mode, lhs, rhs, ...) abort
       let mapdict = maparg(lhs, mode, 0, 1)
       if !empty(mapdict)
         let mapdict.desc = desc
-        call mapset(mapdict)
+        call mapset(mode, 0, mapdict)
       endif
     endfor
   endif
