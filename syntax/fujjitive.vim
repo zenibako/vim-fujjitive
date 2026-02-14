@@ -56,6 +56,13 @@ syn match fujjitiveOtherMutableModifier /^[MADRCU?] / contained containedin=fujj
 syn cluster fujjitiveSection add=fujjitiveOtherMutableSection
 syn match fujjitiveOtherMutableHeading /^Other mutable\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
 
+" 'Bookmarks' section — local bookmarks and their targets
+syn region fujjitiveBookmarksSection start=/^\%(Bookmarks .*(\d\++\=)$\)\@=/ contains=fujjitiveBookmarksHeading end=/^$/ fold
+syn cluster fujjitiveSection add=fujjitiveBookmarksSection
+syn match fujjitiveBookmarksHeading /^Bookmarks\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
+" Bookmark name is the first word on entry lines (not the heading) within the section
+syn match fujjitiveBookmarkName /^\S\+/ contained containedin=fujjitiveBookmarksSection nextgroup=fujjitiveHash skipwhite
+
 " Markers for jj-specific commit metadata in log sections
 syn match fujjitiveEmpty /(empty)/ contained containedin=@fujjitiveSection
 syn match fujjitiveConflict /(conflict)/ contained containedin=@fujjitiveSection
@@ -70,6 +77,8 @@ hi def link fujjitiveCurrentBranchHeading PreProc
 hi def link fujjitiveOtherMutableHeading PreProc
 hi def link fujjitiveUnpushedHeading PreProc
 hi def link fujjitiveUnpulledHeading PreProc
+hi def link fujjitiveBookmarksHeading PreProc
+hi def link fujjitiveBookmarkName Function
 hi def link fujjitiveModifier Type
 hi def link fujjitiveUntrackedModifier StorageClass
 hi def link fujjitiveWorkingCopyModifier Structure

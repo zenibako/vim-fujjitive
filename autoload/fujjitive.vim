@@ -2608,6 +2608,17 @@ function! s:FormatLog(dict) abort
   return join(parts, ' ')
 endfunction
 
+function! s:FormatBookmark(dict) abort
+  let parts = [a:dict.name, a:dict.change_id]
+  let subject = get(a:dict, 'subject', '')
+  if empty(subject)
+    call add(parts, '(no description set)')
+  else
+    call add(parts, subject)
+  endif
+  return join(parts, ' ')
+endfunction
+
 function! s:FormatRebase(dict) abort
   return a:dict.status . ' ' . a:dict.commit . ' ' . a:dict.subject
 endfunction
@@ -2697,6 +2708,32 @@ function! s:QueryLogRange(revset, dir) abort
   return s:QueryLog(a:revset, 256, a:dir)
 endfunction
 
+function! s:QueryBookmarks(dir) abort
+  let template = 'name ++ "\t" ++ normal_target.change_id().short(8) ++ "\t"'
+        \ . ' ++ normal_target.commit_id().short(8) ++ "\t"'
+        \ . ' ++ if(normal_target.empty(), "empty", "") ++ "\t"'
+        \ . ' ++ normal_target.description().first_line() ++ "\n"'
+  let [lines, exec_error] = s:LinesError(
+        \ ['bookmark', 'list', '-T', template], a:dir)
+  call filter(lines, '!empty(v:val)')
+  call map(lines, 'split(v:val, "\t", 1)')
+  call map(lines, '{"type": "Bookmark",'
+        \ . ' "name": v:val[0],'
+        \ . ' "change_id": get(v:val, 1, ""),'
+        \ . ' "commit_id": get(v:val, 2, ""),'
+        \ . ' "empty": get(v:val, 3, "") ==# "empty",'
+        \ . ' "subject": get(v:val, 4, "")}')
+  return {'error': exec_error ? 1 : 0, 'entries': lines}
+endfunction
+
+function! s:AddBookmarkSection(to, label, bookmarks) abort
+  if empty(a:bookmarks.entries)
+    return
+  endif
+  let label = a:label . ' (' . len(a:bookmarks.entries) . ')'
+  call extend(a:to.lines, ['', label] + s:Format(a:bookmarks.entries))
+endfunction
+
 function! s:AddLogSection(to, label, log) abort
   if empty(a:log.entries)
     return
@@ -2735,6 +2772,7 @@ function! s:MapStatus() abort
   call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Working copy changes', 'Untracked')")
   call s:MapMotion('gc', "exe <SID>StageJump(v:count, 'Current branch')")
   call s:MapMotion('gm', "exe <SID>StageJump(v:count, 'Other mutable')")
+  call s:MapMotion('gb', "exe <SID>StageJump(v:count, 'Bookmarks')")
   call s:MapMotion('gp', "exe <SID>StageJump(v:count, 'Unpushed')")
   call s:MapMotion('gP', "exe <SID>StageJump(v:count, 'Unpulled')")
   call s:Map('n', 'C', ":echoerr 'fujjitive: C has been removed in favor of cc'<CR>", '<silent><unique>')
@@ -2910,15 +2948,16 @@ function! s:StatusRender(stat) abort
     endif
     call s:AddHeader(to, 'Help', 'g?')
 
-    call s:AddSection(to, 'Untracked', untracked)
     " NOTE: The 'Unstaged' key is kept as the internal section identifier for
     " compatibility with existing diff expansion, file lookup, and keybinding
     " code. The display label 'Working copy changes' is shown to the user.
     " A full rename of the internal key is deferred to a future phase.
     call s:AddDiffSection(to, stat, 'Unstaged', unstaged, 'Working copy changes')
+    call s:AddSection(to, 'Untracked', untracked)
 
     call s:AddLogSection(to, 'Current branch', stat.current_branch_log)
     call s:AddLogSection(to, 'Other mutable', stat.other_mutable_log)
+    call s:AddBookmarkSection(to, 'Bookmarks', stat.bookmarks_list)
     call s:AddLogSection(to, 'Unpushed', stat.unpushed_log)
     call s:AddLogSection(to, 'Unpulled', stat.unpulled_log)
 
@@ -2956,6 +2995,7 @@ function! s:StatusRetrieve(bufnr, ...) abort
     let stat.other_mutable_log = empty_log
     let stat.unpushed_log = empty_log
     let stat.unpulled_log = empty_log
+    let stat.bookmarks_list = {'error': 0, 'entries': []}
   else
     let stat.rev_parse = fujjitive#Execute(rev_parse_cmd)
     let status_cmd = cmd + ['status']
@@ -2965,8 +3005,11 @@ function! s:StatusRetrieve(bufnr, ...) abort
     " Fetch commit log sections for the summary buffer
     let stat.current_branch_log = s:QueryLog('::@ & mutable()', 50, dir)
     let stat.other_mutable_log = s:QueryLog('mutable() ~ ::@', 50, dir)
+    " Omit empty revisions with no description from 'Other mutable'
+    call filter(stat.other_mutable_log.entries, '!(v:val.empty && empty(v:val.subject))')
     let stat.unpushed_log = s:QueryLog('remote_bookmarks()..bookmarks()', 256, dir)
     let stat.unpulled_log = s:QueryLog('bookmarks()..remote_bookmarks()', 256, dir)
+    let stat.bookmarks_list = s:QueryBookmarks(dir)
   endif
   return stat
 endfunction
@@ -7673,6 +7716,18 @@ function! s:SquashArgument(...) abort
   return len(commit) && a:0 ? printf(a:1, commit) : commit
 endfunction
 
+function! s:BookmarkSetWC() abort
+  let info = s:StageInfo()
+  if info.section !=# 'Bookmarks'
+    return 'echoerr "fujjitive: not on a bookmark line"'
+  endif
+  let name = matchstr(getline('.'), '^\S\+')
+  if empty(name)
+    return 'echoerr "fujjitive: could not determine bookmark name"'
+  endif
+  return 'JJ bookmark set ' . fnameescape(name) . ' -r @'
+endfunction
+
 function! s:RebaseArgument() abort
   return s:SquashArgument(' %s^')
 endfunction
@@ -7790,6 +7845,7 @@ function! s:MapGitOps(is_ftplugin) abort
 
   exe s:Map('n', 'cb<Space>', ':JJ bookmark ', '', ft)
   exe s:Map('n', 'cb<CR>', ':JJ bookmark list<CR>', '', ft)
+  exe s:Map('n', 'cB', ':<C-U>execute <SID>BookmarkSetWC()<CR>', '<silent>', ft)
   exe s:Map('n', 'cb?', ':<C-U>help fujjitive_cb<CR>', '<silent>', ft)
 
   exe s:Map('n', 'r<Space>', ':JJ rebase ', '', ft)
