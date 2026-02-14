@@ -1924,7 +1924,9 @@ function! fujjitive#Find(object, ...) abort
         let commit = matchstr(s:ChompDefault('', [dir, 'merge-base'] + commits + ['--']), '\<[0-9a-f]\{40,\}\>')
       endif
       if commit !~# '^[0-9a-f]\{40,\}$\|^$'
-        let commit = matchstr(s:ChompDefault('', [dir, 'rev-parse', '--verify', commit . (len(file) ? '^{}' : ''), '--']), '\<[0-9a-f]\{40,\}\>')
+        " Use 'jj log' to resolve the revision to a full commit ID.
+        " jj does not support git's rev-parse command.
+        let commit = matchstr(s:ChompDefault('', [dir, 'log', '--no-graph', '-r', commit, '-T', 'commit_id', '--limit', '1']), '\<[0-9a-f]\{40,\}\>')
         if empty(commit) && len(file)
           let commit = repeat('0', 40)
         endif
@@ -2603,6 +2605,10 @@ endfunction
 
 function! s:FormatLog(dict) abort
   let parts = [get(a:dict, 'change_id_short', a:dict.commit)]
+  let commit_id = get(a:dict, 'commit_id', '')
+  if !empty(commit_id)
+    call add(parts, commit_id)
+  endif
   if !empty(get(a:dict, 'working_copies', ''))
     call add(parts, a:dict.working_copies)
   endif
@@ -3155,12 +3161,14 @@ function! fujjitive#BufReadCmd(...) abort
     if rev =~# '^:\d$'
       let b:fujjitive_type = 'stage'
     else
-      let r = fujjitive#Execute([dir, 'cat-file', '-t', rev])
-      let b:fujjitive_type = get(r.stdout, 0, '')
-      if r.exit_status && rev =~# '^:0'
-        let r = fujjitive#Execute([dir, 'write-tree', '--prefix=' . rev[3:-1]])
-        let sha = get(r.stdout, 0, '')
-        let b:fujjitive_type = 'tree'
+      " Use 'jj log' to verify the revision is valid.  jj does not have
+      " git's cat-file or distinct blob/tree/tag types — every valid
+      " revision is a commit.
+      let r = fujjitive#Execute([dir, 'log', '--no-graph', '-r', rev, '-T', 'commit_id', '--limit', '1'])
+      if !r.exit_status && get(r.stdout, 0, '') =~# '^[0-9a-f]\{40,\}$'
+        let b:fujjitive_type = 'commit'
+      else
+        let b:fujjitive_type = ''
       endif
       if r.exit_status
         let error = substitute(join(r.stderr, "\n"), "\n*$", '', '')
@@ -4488,7 +4496,7 @@ function! s:StageInfo(...) abort
         \ 'filename': text,
         \ 'relative': copy(relative),
         \ 'paths': map(copy(relative), 's:Tree() . "/" . v:val'),
-        \ 'commit': matchstr(getline(lnum), '^\%(\%(\x\x\x\)\@!\l\+\s\+\)\=\zs[0-9a-f]\{4,\}\ze '),
+        \ 'commit': matchstr(getline(lnum), '^\%(\%(\x\x\x\)\@!\l\+\%(\%u00b7\l*\)\=\s\+\)\=\zs[0-9a-f]\{4,\}\ze '),
         \ 'status': matchstr(getline(lnum), '^[A-Z?]\ze \|^\%(\x\x\x\)\@!\l\+\ze [0-9a-f]'),
         \ 'submodule': get(file, 'submodule', ''),
         \ 'index': index}

@@ -189,14 +189,12 @@ if empty(commit_line)
   cquit 1
 endif
 
-" Test the regex used by s:StageInfo to extract commit hashes
-" The regex is: '^\%(\%(\x\x\x\)\@!\l\+\s\+\)\=\zs[0-9a-f]\{4,\}\ze '
-let extracted = matchstr(commit_line, '^\%(\%(\x\x\x\)\@!\l\+\s\+\)\=\zs[0-9a-f]\{4,\}\ze ')
+" Test the regex used by s:StageInfo to extract commit hashes.
+" The change_id may contain a middle-dot separator (U+00B7) so the regex
+" uses \%u00b7 to optionally skip over it.
+let extracted = matchstr(commit_line, '^\%(\%(\x\x\x\)\@!\l\+\%(\%u00b7\l*\)\=\s\+\)\=\zs[0-9a-f]\{4,\}\ze ')
 
 if empty(extracted)
-  " The regex failed to find a hex commit hash. This is expected because
-  " s:FormatLog only includes the change_id (e.g. "tplwt·kwu"), which
-  " contains non-hex letters, not the hex commit_id.
   echoerr 'StageInfo commit regex failed to extract hash from: ' . commit_line
   cquit 1
 endif
@@ -330,17 +328,23 @@ fi
 
 cleanup
 
-# ── Test: FormatLog output does not include commit_id hash ───────────────────
-# This verifies the root cause of the StageInfo regex issue: the formatted
-# log line only contains the change_id, not the commit_id hex hash.
+# ── Test: FormatLog output shows shortest change_id ──────────────────────────
+# Verifies that the Ancestors log lines in the status buffer contain the
+# shortest unique change_id prefix (from change_id.shortest()).
 
 setup_jj_repo_with_history
 
-if run_nvim_test_in "$TEST_REPO" <<'VIMSCRIPT'
+# Get the shortest change_id for the first ancestor directly from jj
+SHORTEST_ID=$(cd "$TEST_REPO" && jj log --no-graph -r '@-' -T 'change_id.shortest()' --no-pager 2>/dev/null)
+
+if [[ -z "$SHORTEST_ID" ]]; then
+  fail "FormatLog output shows shortest change_id — could not get shortest id from jj"
+else
+  if run_nvim_test_in "$TEST_REPO" <<VIMSCRIPT
 edit file.txt
 J
 
-let lines = getline(1, '$')
+let lines = getline(1, '\$')
 
 " Find a line in the Ancestors section
 let in_ancestors = 0
@@ -361,21 +365,16 @@ if empty(commit_line)
   cquit 1
 endif
 
-" The formatted log line should contain the change_id with a middle-dot
-" separator (·). Check that the format is as expected.
-if commit_line !~# "\xc2\xb7"
-  echoerr 'Log line missing middle-dot separator (·): ' . commit_line
+" The line should start with the shortest change_id returned by jj
+let expected = '${SHORTEST_ID}'
+if commit_line !~# '\V' . expected
+  echoerr 'Log line does not contain shortest change_id "' . expected . '": ' . commit_line
   cquit 1
 endif
-
-" The line should NOT have a standalone hex commit hash that StageInfo
-" can extract — only the change_id is present. Verify the format.
-" A change_id like "tplwt·kwu" has non-hex chars, so the regex
-" [0-9a-f]{4,} may or may not match depending on the change_id value.
-" This test documents the actual format for reference.
 VIMSCRIPT
-then pass "FormatLog output uses change_id with middle-dot separator"
-else fail "FormatLog output uses change_id with middle-dot separator"
+  then pass "FormatLog output shows shortest change_id"
+  else fail "FormatLog output shows shortest change_id"
+  fi
 fi
 
 cleanup
