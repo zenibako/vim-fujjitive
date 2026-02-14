@@ -3,10 +3,10 @@ id: TASK-3
 title: >-
   Fix s:SquashArgument() for JJ change IDs and simplify jj edit keymap from coo
   to co
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-02-14 01:43'
-updated_date: '2026-02-14 01:45'
+updated_date: '2026-02-14 01:53'
 labels:
   - bug
   - ux
@@ -46,14 +46,14 @@ The `jj edit` keymap requires a 3-key sequence `coo` because the `co` prefix was
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 s:SquashArgument() correctly extracts JJ change IDs (lowercase letter sequences like `toxmsyym`) from status buffer log lines
-- [ ] #2 All revision-targeting keymaps work on JJ log lines: coo/co, rm, cW, rw, crc, crn, ri, rf, rd, rk, rx
-- [ ] #3 s:SquashArgument() continues to work for hex commit hashes in temp/pager buffers
-- [ ] #4 Pressing `co` on a commit line in the status buffer runs `jj edit <change_id>`
-- [ ] #5 `coo` is deprecated with an error message pointing users to `co`
-- [ ] #6 `co<Space>` still populates the command line with `:JJ edit `
-- [ ] #7 `co?` still shows help
-- [ ] #8 Help documentation (doc/fujjitive.txt) is updated to reflect the changes
+- [x] #1 s:SquashArgument() correctly extracts JJ change IDs (lowercase letter sequences like `toxmsyym`) from status buffer log lines
+- [x] #2 All revision-targeting keymaps work on JJ log lines: coo/co, rm, cW, rw, crc, crn, ri, rf, rd, rk, rx
+- [x] #3 s:SquashArgument() continues to work for hex commit hashes in temp/pager buffers
+- [x] #4 Pressing `co` on a commit line in the status buffer runs `jj edit <change_id>`
+- [x] #5 `coo` is deprecated with an error message pointing users to `co`
+- [x] #6 `co<Space>` still populates the command line with `:JJ edit `
+- [x] #7 `co?` still shows help
+- [x] #8 Help documentation (doc/fujjitive.txt) is updated to reflect the changes
 <!-- AC:END -->
 
 ## Implementation Plan
@@ -86,3 +86,9 @@ let commit = matchstr(getline('.'), '\S\@<!\%(\l\{4,\}\|\x\{4,\}\)\S\@!')
 
 Update fujjitive_co section in doc/fujjitive.txt.
 <!-- SECTION:PLAN:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+## Summary\n\nFixed a bug where all revision-targeting keymaps in the status buffer failed because `s:SquashArgument()` only matched hex hashes (`[0-9a-f]`), not JJ change IDs which use the `[k-z]` alphabet. Also simplified the `jj edit` keymap from `coo` (3 keys) to `co` (2 keys).\n\n## Changes\n\n- **autoload/fujjitive.vim:7710**: Replaced hex-only regex with `[k-z]` pattern that matches JJ change IDs in both log lines (change_id at start) and bookmark lines (change_id after bookmark name prefix)\n- **autoload/fujjitive.vim:7712**: Extended temp/pager buffer regex to match both `[k-z]` change IDs and hex commit hashes\n- **autoload/fujjitive.vim:7843-7844**: Changed `coo` to `co` for `jj edit`, added `coo` deprecation message\n- **doc/fujjitive.txt:552-554**: Updated docs to reflect `co` as the canonical keymap with `coo` deprecated\n\n## Testing\n\n- All 63 existing tests pass\n- Regex tested against 13 line format scenarios (log lines, bookmark lines with various name formats, file lines, section headings, headers, empty lines) — all pass
+<!-- SECTION:FINAL_SUMMARY:END -->

@@ -539,6 +539,9 @@ crn                     Back out the commit under the cursor (using
 cr<Space>               Populate command line with ":JJ backout ".
 
                                                 *fujjitive_cm*
+cmn                     Create a new change on top of the commit under the
+                        cursor (using `jj new`).
+
 cm<Space>               Populate command line with ":JJ new ".
 
 cmt                     Resolve merge conflicts (using `jj resolve`).

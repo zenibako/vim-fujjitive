@@ -7823,6 +7823,7 @@ function! s:MapGitOps(is_ftplugin) abort
 
   exe s:Map('n', 'cm<Space>', ':JJ new ', '', ft)
   exe s:Map('n', 'cm<CR>', ':JJ new<CR>', '', ft)
+  exe s:Map('n', 'cmn', ':<C-U>JJ new <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft)
   exe s:Map('n', 'cmt', ':JJ resolve', '', ft)
   exe s:Map('n', 'cm?', ':<C-U>help fujjitive_cm<CR>', '<silent>', ft)
 
