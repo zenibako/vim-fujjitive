@@ -2770,7 +2770,7 @@ function! s:MapStatus() abort
   call s:Map('n', 'U', ":<C-U>JJ restore<CR>", '<silent>')
   call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Working copy changes')")
   call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Working copy changes', 'Untracked')")
-  call s:MapMotion('gc', "exe <SID>StageJump(v:count, 'Current branch')")
+  call s:MapMotion('gc', "exe <SID>StageJump(v:count, 'Ancestors')")
   call s:MapMotion('gm', "exe <SID>StageJump(v:count, 'Other mutable')")
   call s:MapMotion('gb', "exe <SID>StageJump(v:count, 'Bookmarks')")
   call s:MapMotion('gp', "exe <SID>StageJump(v:count, 'Unpushed')")
@@ -2937,7 +2937,13 @@ function! s:StatusRender(stat) abort
     let dir = s:Dir(config)
 
     call fujjitive#Wait(stat.rev_parse)
-    let head = empty(stat.branch) ? get(stat.rev_parse.stdout, 0, '(unknown)') : stat.branch
+    " Build the Working copy header from structured log data when available,
+    " falling back to the raw jj-status output or rev-parse shortest ID.
+    if !empty(get(stat.working_copy_log, 'entries', []))
+      let head = s:FormatLog(stat.working_copy_log.entries[0])
+    else
+      let head = empty(stat.branch) ? get(stat.rev_parse.stdout, 0, '(unknown)') : stat.branch
+    endif
 
     let stat.expanded = {'Staged': {}, 'Unstaged': {}}
     let to = {'lines': []}
@@ -2955,7 +2961,7 @@ function! s:StatusRender(stat) abort
     call s:AddDiffSection(to, stat, 'Unstaged', unstaged, 'Working copy changes')
     call s:AddSection(to, 'Untracked', untracked)
 
-    call s:AddLogSection(to, 'Current branch', stat.current_branch_log)
+    call s:AddLogSection(to, 'Ancestors', stat.ancestors_log)
     call s:AddLogSection(to, 'Other mutable', stat.other_mutable_log)
     call s:AddBookmarkSection(to, 'Bookmarks', stat.bookmarks_list)
     call s:AddLogSection(to, 'Unpushed', stat.unpushed_log)
@@ -2991,7 +2997,8 @@ function! s:StatusRetrieve(bufnr, ...) abort
     let stat.status = {}
     let stat.running = stat.rev_parse
     let empty_log = {'error': 0, 'overflow': 0, 'entries': []}
-    let stat.current_branch_log = empty_log
+    let stat.working_copy_log = empty_log
+    let stat.ancestors_log = empty_log
     let stat.other_mutable_log = empty_log
     let stat.unpushed_log = empty_log
     let stat.unpulled_log = empty_log
@@ -3003,7 +3010,8 @@ function! s:StatusRetrieve(bufnr, ...) abort
     let stat.running = stat.status
 
     " Fetch commit log sections for the summary buffer
-    let stat.current_branch_log = s:QueryLog('::@ & mutable()', 50, dir)
+    let stat.working_copy_log = s:QueryLog('@', 1, dir)
+    let stat.ancestors_log = s:QueryLog('::@- & mutable()', 50, dir)
     let stat.other_mutable_log = s:QueryLog('mutable() ~ ::@', 50, dir)
     " Omit empty revisions with no description from 'Other mutable'
     call filter(stat.other_mutable_log.entries, '!(v:val.empty && empty(v:val.subject))')

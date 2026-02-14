@@ -44,11 +44,11 @@ syn match fujjitiveWorkingCopyModifier /^[MADRCU?] / contained containedin=fujji
 syn cluster fujjitiveSection add=fujjitiveWorkingCopySection
 syn match fujjitiveWorkingCopyHeading /^Working copy changes\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
 
-" 'Current branch' section — mutable ancestors of the working copy
-syn region fujjitiveCurrentBranchSection start=/^\%(Current branch .*(\d\++\=)$\)\@=/ contains=fujjitiveCurrentBranchHeading end=/^$/ fold
-syn match fujjitiveCurrentBranchModifier /^[MADRCU?] / contained containedin=fujjitiveCurrentBranchSection
-syn cluster fujjitiveSection add=fujjitiveCurrentBranchSection
-syn match fujjitiveCurrentBranchHeading /^Current branch\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
+" 'Ancestors' section — mutable ancestors of the working copy (excluding @)
+syn region fujjitiveAncestorsSection start=/^\%(Ancestors .*(\d\++\=)$\)\@=/ contains=fujjitiveAncestorsHeading end=/^$/ fold
+syn match fujjitiveAncestorsModifier /^[MADRCU?] / contained containedin=fujjitiveAncestorsSection
+syn cluster fujjitiveSection add=fujjitiveAncestorsSection
+syn match fujjitiveAncestorsHeading /^Ancestors\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
 
 " 'Other mutable' section — mutable changes not on the current branch
 syn region fujjitiveOtherMutableSection start=/^\%(Other mutable .*(\d\++\=)$\)\@=/ contains=fujjitiveOtherMutableHeading end=/^$/ fold
@@ -73,7 +73,7 @@ hi def link fujjitiveHelpTag Tag
 hi def link fujjitiveHeading PreProc
 hi def link fujjitiveUntrackedHeading PreCondit
 hi def link fujjitiveWorkingCopyHeading Macro
-hi def link fujjitiveCurrentBranchHeading PreProc
+hi def link fujjitiveAncestorsHeading PreProc
 hi def link fujjitiveOtherMutableHeading PreProc
 hi def link fujjitiveUnpushedHeading PreProc
 hi def link fujjitiveUnpulledHeading PreProc

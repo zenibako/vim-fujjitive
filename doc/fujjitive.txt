@@ -479,7 +479,7 @@ gU                      Jump to file [count] in the "Working copy changes" or
                         "Untracked" section.
 
                                                 *fujjitive_gc*
-gc                      Jump to file [count] in the "Current branch" section.
+gc                      Jump to file [count] in the "Ancestors" section.
 
                                                 *fujjitive_gm*
 gm                      Jump to file [count] in the "Other mutable" section.
