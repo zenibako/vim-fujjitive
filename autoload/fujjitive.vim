@@ -2606,7 +2606,7 @@ endfunction
 function! s:FormatLog(dict) abort
   let parts = [get(a:dict, 'change_id_short', a:dict.commit)]
   let commit_id = get(a:dict, 'commit_id', '')
-  if !empty(commit_id)
+  if !empty(commit_id) && get(g:, 'fujjitive_show_commit_id', 0)
     call add(parts, commit_id)
   endif
   if !empty(get(a:dict, 'working_copies', ''))
