@@ -2789,8 +2789,8 @@ function! s:MapStatus() abort
   call s:Map('n', 'u', ":<C-U>execute <SID>Do('Squash',0)<CR>", '<silent>', 0, 'Squash (unstage) file')
   call s:Map('x', 'u', ":<C-U>execute <SID>Do('Squash',1)<CR>", '<silent>', 0, 'Squash (unstage) selection')
   call s:Map('n', 'U', ":<C-U>JJ restore<CR>", '<silent>', 0, 'Restore all (discard changes)')
-  call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Working copy changes')", 'Jump to Untracked section')
-  call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Working copy changes', 'Untracked')", 'Jump to Working copy section')
+  call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Changes')", 'Jump to Untracked section')
+  call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Changes', 'Untracked')", 'Jump to Changes section')
   call s:MapMotion('gc', "exe <SID>StageJump(v:count, 'Ancestors')", 'Jump to Ancestors section')
   call s:MapMotion('gm', "exe <SID>StageJump(v:count, 'Other mutable')", 'Jump to Other mutable section')
   call s:MapMotion('gb', "exe <SID>StageJump(v:count, 'Bookmarks')", 'Jump to Bookmarks section')
@@ -2975,9 +2975,9 @@ function! s:StatusRender(stat) abort
 
     " NOTE: The 'Unstaged' key is kept as the internal section identifier for
     " compatibility with existing diff expansion, file lookup, and keybinding
-    " code. The display label 'Working copy changes' is shown to the user.
+    " code. The display label 'Changes' is shown to the user.
     " A full rename of the internal key is deferred to a future phase.
-    call s:AddDiffSection(to, stat, 'Unstaged', unstaged, 'Working copy changes')
+    call s:AddDiffSection(to, stat, 'Unstaged', unstaged, 'Changes')
     call s:AddSection(to, 'Untracked', untracked)
 
     call s:AddLogSection(to, 'Ancestors', stat.ancestors_log)
@@ -5303,9 +5303,9 @@ function! s:CommitInteractive(line1, line2, range, bang, mods, options, patch) a
   let status = s:StatusCommand(a:line1, a:line2, a:range, get(a:options, 'curwin') && a:line2 < 0 ? 0 : a:line2, a:bang, a:mods, '', '', [], a:options)
   let status = len(status) ? status . '|' : ''
   if a:patch
-    return status . 'if search("^Working copy changes")|exe "normal >"|exe "+"|endif'
+    return status . 'if search("^Changes")|exe "normal >"|exe "+"|endif'
   else
-    return status . 'if search("^Untracked\\|^Working copy changes")|exe "+"|endif'
+    return status . 'if search("^Untracked\\|^Changes")|exe "+"|endif'
   endif
 endfunction
 

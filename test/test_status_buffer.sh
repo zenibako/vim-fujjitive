@@ -4,7 +4,7 @@
 # Validates:
 #   - :J opens a buffer with correct filetype, buftype, and b:fujjitive_type
 #   - Header lines contain Working copy, Parent, and Help
-#   - Modified files appear in Working copy changes section
+#   - Modified files appear in Changes section
 
 source "$(dirname "$0")/helpers.sh"
 
@@ -88,7 +88,7 @@ fi
 
 cleanup
 
-# ── Test: Modified files appear in Working copy changes ──────────────────────
+# ── Test: Modified files appear in Changes ───────────────────────────────────
 
 setup_jj_repo
 
@@ -102,16 +102,16 @@ J
 let lines = getline(1, '$')
 let content = join(lines, "\n")
 
-" Check that Working copy changes section exists
+" Check that Changes section exists
 let has_section = 0
 for l in lines
-  if l =~# 'Working copy changes'
+  if l =~# '^Changes '
     let has_section = 1
     break
   endif
 endfor
 if !has_section
-  echoerr 'Missing "Working copy changes" section. Buffer: ' . content
+  echoerr 'Missing "Changes" section. Buffer: ' . content
   cquit 1
 endif
 
@@ -128,8 +128,8 @@ if !has_file
   cquit 1
 endif
 VIMSCRIPT
-then pass "Modified files appear in Working copy changes section"
-else fail "Modified files appear in Working copy changes section"
+then pass "Modified files appear in Changes section"
+else fail "Modified files appear in Changes section"
 fi
 
 cleanup

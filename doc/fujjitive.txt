@@ -311,7 +311,7 @@ u                       Squash the file or hunk under the cursor back into the
                         parent change (using `jj squash`).
 
                                                 *fujjitive_-*
--                       In the "Working copy changes" section, split the file
+-                       In the "Changes" section, split the file
                         under the cursor into a new change.  In log sections,
                         context-dependent action (push, rebase, etc.).
 
@@ -471,12 +471,12 @@ J                       Jump to next hunk, expanding inline diffs
                         automatically.  Same as |fujjitive_]c|.
 
                                                 *fujjitive_gu*
-gu                      Jump to file [count] in the "Untracked" or "Working
-                        copy changes" section.
+gu                      Jump to file [count] in the "Untracked" or "Changes"
+                        section.
 
                                                 *fujjitive_gU*
-gU                      Jump to file [count] in the "Working copy changes" or
-                        "Untracked" section.
+gU                      Jump to file [count] in the "Changes" or "Untracked"
+                        section.
 
                                                 *fujjitive_gc*
 gc                      Jump to file [count] in the "Ancestors" section.

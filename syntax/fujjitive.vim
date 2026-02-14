@@ -25,7 +25,9 @@ syn match fujjitiveStop /^stop\>/ contained containedin=@fujjitiveSection nextgr
 syn match fujjitiveModifier /^[MADRCU?]\{1,2} / contained containedin=@fujjitiveSection
 syn match fujjitiveSymbolicRef /\.\@!\%(\.\.\@!\|[^[:space:][:cntrl:]\:.]\)\+\.\@<!/ contained
 syn match fujjitiveHash /^\x\{4,\}\S\@!/ contained containedin=@fujjitiveSection
+syn match fujjitiveHash /^[k-z]\{4,\}\S\@!/ contained containedin=@fujjitiveSection
 syn match fujjitiveHash /\S\@<!\x\{4,\}\S\@!/ contained
+syn match fujjitiveHash /\S\@<![k-z]\{4,\}\S\@!/ contained
 
 syn region fujjitiveHunk start=/^\%(@@\+ -\)\@=/ end=/^\%([A-Za-z?@]\|$\)\@=/ contains=diffLine,diffRemoved,diffAdded,diffNoEOL containedin=@fujjitiveSection fold
 
@@ -38,11 +40,11 @@ for s:section in ['Untracked', 'Unpushed', 'Unpulled']
 endfor
 unlet s:section
 
-" 'Working copy changes' section (display label for the internal 'Unstaged' key)
-syn region fujjitiveWorkingCopySection start=/^\%(Working copy changes .*(\d\++\=)$\)\@=/ contains=fujjitiveWorkingCopyHeading end=/^$/ fold
+" 'Changes' section (display label for the internal 'Unstaged' key)
+syn region fujjitiveWorkingCopySection start=/^\%(Changes .*(\d\++\=)$\)\@=/ contains=fujjitiveWorkingCopyHeading end=/^$/ fold
 syn match fujjitiveWorkingCopyModifier /^[MADRCU?] / contained containedin=fujjitiveWorkingCopySection
 syn cluster fujjitiveSection add=fujjitiveWorkingCopySection
-syn match fujjitiveWorkingCopyHeading /^Working copy changes\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
+syn match fujjitiveWorkingCopyHeading /^Changes\ze (\d\++\=)$/ contained nextgroup=fujjitiveCount skipwhite
 
 " 'Ancestors' section — mutable ancestors of the working copy (excluding @)
 syn region fujjitiveAncestorsSection start=/^\%(Ancestors .*(\d\++\=)$\)\@=/ contains=fujjitiveAncestorsHeading end=/^$/ fold
