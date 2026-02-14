@@ -2602,10 +2602,7 @@ function! s:ReplaceCmd(cmd) abort
 endfunction
 
 function! s:FormatLog(dict) abort
-  let change = get(a:dict, 'change_id_prefix', a:dict.commit)
-        \ . "\xc2\xb7"
-        \ . get(a:dict, 'change_id_rest', '')
-  let parts = [change]
+  let parts = [get(a:dict, 'change_id_short', a:dict.commit)]
   if !empty(get(a:dict, 'bookmarks', ''))
     call add(parts, a:dict.bookmarks)
   endif
@@ -2630,10 +2627,7 @@ function! s:FormatBookmark(dict) abort
   if !empty(remote)
     let name .= '@' . remote
   endif
-  let change = get(a:dict, 'change_id_prefix', a:dict.change_id)
-        \ . "\xc2\xb7"
-        \ . get(a:dict, 'change_id_rest', '')
-  let parts = [name, change]
+  let parts = [name, get(a:dict, 'change_id_short', a:dict.change_id)]
   let subject = get(a:dict, 'subject', '')
   if empty(subject)
     call add(parts, '(no description set)')
@@ -2700,8 +2694,8 @@ function! s:AddDiffSection(to, stat, label, files, ...) abort
 endfunction
 
 function! s:QueryLog(revset, limit, dir) abort
-  let template = 'change_id.shortest(8).prefix() ++ "\t"'
-        \ . ' ++ change_id.shortest(8).rest() ++ "\t"'
+  let template = 'change_id.shortest() ++ "\t"'
+        \ . ' ++ change_id.short(8) ++ "\t"'
         \ . ' ++ commit_id.short(8) ++ "\t"'
         \ . ' ++ bookmarks ++ "\t" ++ if(empty, "empty", "") ++ "\t"'
         \ . ' ++ if(conflict, "conflict", "") ++ "\t"'
@@ -2712,10 +2706,9 @@ function! s:QueryLog(revset, limit, dir) abort
   call filter(log, '!empty(v:val)')
   call map(log, 'split(v:val, "\t", 1)')
   call map(log, '{"type": "Log",'
-        \ . ' "commit": v:val[0] . v:val[1],'
-        \ . ' "change_id": v:val[0] . v:val[1],'
-        \ . ' "change_id_prefix": v:val[0],'
-        \ . ' "change_id_rest": get(v:val, 1, ""),'
+        \ . ' "commit": get(v:val, 1, v:val[0]),'
+        \ . ' "change_id": get(v:val, 1, v:val[0]),'
+        \ . ' "change_id_short": v:val[0],'
         \ . ' "commit_id": get(v:val, 2, ""),'
         \ . ' "bookmarks": get(v:val, 3, ""),'
         \ . ' "empty": get(v:val, 4, "") ==# "empty",'
@@ -2739,8 +2732,8 @@ endfunction
 function! s:QueryBookmarks(dir) abort
   let template = 'name ++ "\t" ++ if(self.remote(), self.remote(), "") ++ "\t"'
         \ . ' ++ self.synced() ++ "\t"'
-        \ . ' ++ normal_target.change_id().shortest(8).prefix() ++ "\t"'
-        \ . ' ++ normal_target.change_id().shortest(8).rest() ++ "\t"'
+        \ . ' ++ normal_target.change_id().shortest() ++ "\t"'
+        \ . ' ++ normal_target.change_id().short(8) ++ "\t"'
         \ . ' ++ normal_target.commit_id().short(8) ++ "\t"'
         \ . ' ++ if(normal_target.empty(), "empty", "") ++ "\t"'
         \ . ' ++ normal_target.description().first_line() ++ "\n"'
@@ -2752,9 +2745,8 @@ function! s:QueryBookmarks(dir) abort
         \ . ' "name": v:val[0],'
         \ . ' "remote": get(v:val, 1, ""),'
         \ . ' "synced": get(v:val, 2, "") ==# "true",'
-        \ . ' "change_id": get(v:val, 3, "") . get(v:val, 4, ""),'
-        \ . ' "change_id_prefix": get(v:val, 3, ""),'
-        \ . ' "change_id_rest": get(v:val, 4, ""),'
+        \ . ' "change_id_short": get(v:val, 3, ""),'
+        \ . ' "change_id": get(v:val, 4, ""),'
         \ . ' "commit_id": get(v:val, 5, ""),'
         \ . ' "empty": get(v:val, 6, "") ==# "empty",'
         \ . ' "subject": get(v:val, 7, "")}')
@@ -3066,9 +3058,6 @@ function! fujjitive#BufReadStatus(cmdbang) abort
     doautocmd <nomodeline> BufReadPre
 
     setlocal readonly nomodifiable noswapfile nomodeline buftype=nowrite
-    if has('conceal')
-      setlocal concealcursor=nc conceallevel=2
-    endif
     call s:MapStatus()
 
     exe s:StatusRender(stat)
@@ -7750,8 +7739,7 @@ endfunction
 
 function! s:SquashArgument(...) abort
   if &filetype == 'fujjitive'
-    let commit = matchstr(getline('.'), '^\S\+\s\+\zs[k-z\xc2\xb7]\{4,\}\ze \|^[k-z\xc2\xb7]\{4,\}\ze \|^' . s:ref_header . ': \zs\S\+')
-    let commit = substitute(commit, "\xc2\xb7", '', 'g')
+    let commit = matchstr(getline('.'), '^\S\+\s\+\zs[k-z]\+\ze \|^[k-z]\+\ze \|^' . s:ref_header . ': \zs\S\+')
   elseif has_key(s:temp_files, s:cpath(expand('%:p')))
     let commit = matchstr(getline('.'), '\S\@<!\%([k-z]\{4,\}\|\x\{4,\}\)\S\@!')
   else

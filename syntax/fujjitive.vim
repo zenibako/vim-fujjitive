@@ -29,12 +29,9 @@ syn match fujjitiveSymbolicRef /\.\@!\%(\.\.\@!\|[^[:space:][:cntrl:]\:.]\)\+\.\
 syn match fujjitiveHash /^\x\{4,\}\S\@!/ contained containedin=@fujjitiveSection
 syn match fujjitiveHash /\S\@<!\x\{4,\}\S\@!/ contained
 
-" JJ change IDs ([k-z]) with concealed · separator between unique prefix and rest.
-" The prefix is emphasized; the rest is muted.
-syn match fujjitiveChangeId /^[k-z]\+\ze\xc2\xb7/ contained containedin=@fujjitiveSection nextgroup=fujjitiveChangeIdSep
-syn match fujjitiveChangeId /\S\@<![k-z]\+\ze\xc2\xb7/ contained nextgroup=fujjitiveChangeIdSep
-syn match fujjitiveChangeIdSep /\xc2\xb7/ contained conceal nextgroup=fujjitiveChangeIdRest
-syn match fujjitiveChangeIdRest /[k-z]\+/ contained
+" JJ change IDs ([k-z]) — displayed as the shortest unique prefix
+syn match fujjitiveChangeId /^[k-z]\+\S\@!/ contained containedin=@fujjitiveSection
+syn match fujjitiveChangeId /\S\@<![k-z]\+\S\@!/ contained
 
 syn region fujjitiveHunk start=/^\%(@@\+ -\)\@=/ end=/^\%([A-Za-z?@]\|$\)\@=/ contains=diffLine,diffRemoved,diffAdded,diffNoEOL containedin=@fujjitiveSection fold
 
@@ -87,7 +84,6 @@ hi def link fujjitiveInstruction Type
 hi def link fujjitiveStop Function
 hi def link fujjitiveHash Identifier
 hi def link fujjitiveChangeId Identifier
-hi def link fujjitiveChangeIdRest Comment
 hi def link fujjitiveSymbolicRef Function
 hi def link fujjitiveCount Number
 hi def link fujjitiveEmpty Comment
