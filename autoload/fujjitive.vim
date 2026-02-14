@@ -7743,6 +7743,14 @@ function! s:SquashArgument(...) abort
   return len(commit) && a:0 ? printf(a:1, commit) : commit
 endfunction
 
+function! s:SquashCommand(cmd, ...) abort
+  let commit = s:SquashArgument()
+  if empty(commit)
+    return 'echoerr "fujjitive: cursor is not on a revision line"'
+  endif
+  return a:cmd . ' ' . commit . (a:0 ? ' ' . a:1 : '')
+endfunction
+
 function! s:BookmarkSetWC() abort
   let info = s:StageInfo()
   if info.section !=# 'Bookmarks'
@@ -7846,13 +7854,13 @@ function! s:MapGitOps(is_ftplugin) abort
 
   exe s:Map('n', 'cr<Space>', ':JJ backout ', '', ft, 'Backout (prompt)')
   exe s:Map('n', 'cr<CR>', ':JJ backout<CR>', '', ft, 'Backout')
-  exe s:Map('n', 'crc', ':<C-U>JJ backout -r <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Backout revision')
-  exe s:Map('n', 'crn', ':<C-U>JJ backout -r <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Backout revision')
+  exe s:Map('n', 'crc', ':<C-U>execute <SID>SquashCommand("JJ backout -r")<CR>', '<silent>', ft, 'Backout revision')
+  exe s:Map('n', 'crn', ':<C-U>execute <SID>SquashCommand("JJ backout -r")<CR>', '<silent>', ft, 'Backout revision')
   exe s:Map('n', 'cr?', ':<C-U>help fujjitive_cr<CR>', '<silent>', ft, 'Backout help')
 
   exe s:Map('n', 'cm<Space>', ':JJ new ', '', ft, 'New change (prompt)')
   exe s:Map('n', 'cm<CR>', ':JJ new<CR>', '', ft, 'New change')
-  exe s:Map('n', 'cmn', ':<C-U>JJ new <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'New change after revision')
+  exe s:Map('n', 'cmn', ':<C-U>execute <SID>SquashCommand("JJ new")<CR>', '<silent>', ft, 'New change after revision')
   exe s:Map('n', 'cmt', ':JJ resolve', '', ft, 'Resolve conflicts')
   exe s:Map('n', 'cm?', ':<C-U>help fujjitive_cm<CR>', '<silent>', ft, 'New change help')
 
@@ -7870,7 +7878,7 @@ function! s:MapGitOps(is_ftplugin) abort
 
   exe s:Map('n', 'co<Space>', ':JJ edit ', '', ft, 'Edit revision (prompt)')
   exe s:Map('n', 'co<CR>', ':JJ edit<CR>', '', ft, 'Edit revision')
-  exe s:Map('n', 'co', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Edit revision')
+  exe s:Map('n', 'co', ':<C-U>execute <SID>SquashCommand("JJ edit")<CR>', '<silent>', ft, 'Edit revision')
   exe s:Map('n', 'coo', ':echoerr "fujjitive: coo has been replaced by co"<CR>', '<silent><unique>', ft, 'Edit (removed, use co)')
   exe s:Map('n', 'co?', ':<C-U>help fujjitive_co<CR>', '<silent>', ft, 'Edit help')
 
@@ -7882,14 +7890,14 @@ function! s:MapGitOps(is_ftplugin) abort
   exe s:Map('n', 'r<Space>', ':JJ rebase ', '', ft, 'Rebase (prompt)')
   exe s:Map('n', 'r<CR>', ':JJ rebase<CR>', '', ft, 'Rebase')
   exe s:Map('n', 'ri', ':<C-U>JJ rebase -r <C-R>=<SID>SquashArgument()<CR> -d ', '', ft, 'Rebase revision interactively')
-  exe s:Map('n', 'rf', ':<C-U>JJ squash --into <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Squash into revision (fixup)')
-  exe s:Map('n', 'ru', ':<C-U>JJ rebase -b <C-R>=<SID>SquashArgument()<CR> -d ''trunk()''<CR>', '<silent>', ft, 'Rebase onto trunk')
-  exe s:Map('n', 'rp', ':<C-U>JJ rebase -b <C-R>=<SID>SquashArgument()<CR> -d ''trunk()''<CR>', '<silent>', ft, 'Rebase onto trunk')
+  exe s:Map('n', 'rf', ':<C-U>execute <SID>SquashCommand("JJ squash --into")<CR>', '<silent>', ft, 'Squash into revision (fixup)')
+  exe s:Map('n', 'ru', ':<C-U>execute <SID>SquashCommand("JJ rebase -b", "-d ''trunk()''")<CR>', '<silent>', ft, 'Rebase onto trunk')
+  exe s:Map('n', 'rp', ':<C-U>execute <SID>SquashCommand("JJ rebase -b", "-d ''trunk()''")<CR>', '<silent>', ft, 'Rebase onto trunk')
   exe s:Map('n', 'rw', ':echoerr "fujjitive: rw has been removed in favor of cW"<CR>', '<silent><unique>', ft, 'Reword (removed, use cW)')
-  exe s:Map('n', 'rm', ':<C-U>JJ edit <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Edit (move to) revision')
-  exe s:Map('n', 'rd', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Abandon revision')
-  exe s:Map('n', 'rk', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Abandon revision')
-  exe s:Map('n', 'rx', ':<C-U>JJ abandon <C-R>=<SID>SquashArgument()<CR><CR>', '<silent>', ft, 'Abandon revision')
+  exe s:Map('n', 'rm', ':<C-U>execute <SID>SquashCommand("JJ edit")<CR>', '<silent>', ft, 'Edit (move to) revision')
+  exe s:Map('n', 'rd', ':<C-U>execute <SID>SquashCommand("JJ abandon")<CR>', '<silent>', ft, 'Abandon revision')
+  exe s:Map('n', 'rk', ':<C-U>execute <SID>SquashCommand("JJ abandon")<CR>', '<silent>', ft, 'Abandon revision')
+  exe s:Map('n', 'rx', ':<C-U>execute <SID>SquashCommand("JJ abandon")<CR>', '<silent>', ft, 'Abandon revision')
   exe s:Map('n', 'rr', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no continue needed"<CR>', '<silent>', ft, 'Rebase continue (N/A)')
   exe s:Map('n', 'rs', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no skip needed"<CR>', '<silent>', ft, 'Rebase skip (N/A)')
   exe s:Map('n', 're', ':<C-U>echoerr "fujjitive: JJ rebase is non-interactive; no todo list"<CR>', '<silent>', ft, 'Rebase edit (N/A)')
