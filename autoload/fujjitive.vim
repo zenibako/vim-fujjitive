@@ -3230,14 +3230,7 @@ function! fujjitive#BufReadCmd(...) abort
         if b:fujjitive_display_format
           call s:ReplaceCmd([dir, 'cat-file', b:fujjitive_type, rev])
         else
-          call s:ReplaceCmd([dir, 'show', '--no-pager', '-r', rev, '-T', 'concat("author " ++ author.name() ++ " <" ++ author.email() ++ "> " ++ author.timestamp() ++ "\ncommitter " ++ committer.name() ++ " <" ++ committer.email() ++ "> " ++ committer.timestamp() ++ "\n\n" ++ description)'])
-          keepjumps 1
-          keepjumps call search('^parent ')
-          if getline('.') ==# 'parent '
-            silent lockmarks keepjumps delete_
-          else
-            silent exe (exists(':keeppatterns') ? 'keeppatterns' : '') 'keepjumps s/\m\C\%(^parent\)\@<! /\rparent /e' . (&gdefault ? '' : 'g')
-          endif
+          call s:ReplaceCmd([dir, 'show', '--no-pager', '-r', rev, '-T', 'concat("Commit ID: " ++ commit_id ++ "\nChange ID: " ++ change_id ++ "\nAuthor   : " ++ author.name() ++ " <" ++ author.email() ++ "> (" ++ author.timestamp() ++ ")\nCommitter: " ++ committer.name() ++ " <" ++ committer.email() ++ "> (" ++ committer.timestamp() ++ ")\n\n" ++ indent("    ", if(description, description, "(no description set)\n")))'])
           keepjumps let lnum = search('^encoding \%(<unknown>\)\=$','W',line('.')+3)
           if lnum
             silent lockmarks keepjumps delete_
