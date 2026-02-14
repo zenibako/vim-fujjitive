@@ -2840,9 +2840,9 @@ function! s:StatusProcess(result, stat) abort
         let line = output[i]
         if line =~# '^Working copy changes:'
           let in_working_copy = 1
-        elseif line =~# '^Working copy\s*:'
+        elseif line =~# '^Working copy\s*\%(([^)]*)\s*\)\=:'
           let stat.props['working_copy'] = matchstr(line, ':\s*\zs.*')
-        elseif line =~# '^Parent commit\s*:'
+        elseif line =~# '^Parent commit\s*\%(([^)]*)\s*\)\=:'
           let stat.props['parent_commit'] = matchstr(line, ':\s*\zs.*')
         elseif in_working_copy && line =~# '^\([MADR]\) '
           let status = line[0]
