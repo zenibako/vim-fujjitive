@@ -4599,6 +4599,13 @@ function! s:Selection(arg1, ...) abort
             \ 'commit': matchstr(line, '^\%(\x\x\x\)\@!\l\+'),
             \ 'status': matchstr(line, '^\%(\x\x\x\)\@!\l\+'),
             \ }, template, 'keep'))
+    elseif template.section ==# 'Bookmarks' && line =~# '^\S\+ '
+      " Bookmark line: <name> <change_id_short> <subject>
+      call add(results, extend({
+            \ 'lnum': lnum,
+            \ 'commit': matchstr(line, '^\S\+\s\+\zs\S\+'),
+            \ 'status': matchstr(line, '^\S\+'),
+            \ }, template, 'keep'))
     endif
     let lnum += 1
     let template.index += 1
