@@ -2743,6 +2743,7 @@ endfunction
 function! s:QueryBookmarks(dir) abort
   let template = 'name ++ "\t" ++ if(self.remote(), self.remote(), "") ++ "\t"'
         \ . ' ++ self.synced() ++ "\t"'
+        \ . ' ++ self.tracked() ++ "\t"'
         \ . ' ++ normal_target.change_id().shortest() ++ "\t"'
         \ . ' ++ normal_target.change_id().short(8) ++ "\t"'
         \ . ' ++ normal_target.commit_id().short(8) ++ "\t"'
@@ -2756,13 +2757,14 @@ function! s:QueryBookmarks(dir) abort
         \ . ' "name": v:val[0],'
         \ . ' "remote": get(v:val, 1, ""),'
         \ . ' "synced": get(v:val, 2, "") ==# "true",'
-        \ . ' "change_id_short": get(v:val, 3, ""),'
-        \ . ' "change_id": get(v:val, 4, ""),'
-        \ . ' "commit_id": get(v:val, 5, ""),'
-        \ . ' "empty": get(v:val, 6, "") ==# "empty",'
-        \ . ' "subject": get(v:val, 7, "")}')
-  " Hide remote bookmarks that are synced with their local counterpart.
-  call filter(lines, 'empty(v:val.remote) || !v:val.synced')
+        \ . ' "tracked": get(v:val, 3, "") ==# "true",'
+        \ . ' "change_id_short": get(v:val, 4, ""),'
+        \ . ' "change_id": get(v:val, 5, ""),'
+        \ . ' "commit_id": get(v:val, 6, ""),'
+        \ . ' "empty": get(v:val, 7, "") ==# "empty",'
+        \ . ' "subject": get(v:val, 8, "")}')
+  " Hide untracked remote bookmarks and synced tracked remote bookmarks.
+  call filter(lines, 'empty(v:val.remote) || (v:val.tracked && !v:val.synced)')
   return {'error': exec_error ? 1 : 0, 'entries': lines}
 endfunction
 
