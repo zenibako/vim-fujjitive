@@ -7822,7 +7822,14 @@ function! s:BookmarkSetWC() abort
   if name =~# '@'
     return 'echoerr "fujjitive: cannot set a remote bookmark (use a local bookmark)"'
   endif
-  return 'JJ bookmark set ' . fnameescape(name) . ' -r @'
+  " Use @- (parent) when the working copy is empty, @ otherwise.
+  let rev = '@'
+  let stat = get(b:, 'fujjitive_status', {})
+  let entries = get(get(stat, 'working_copy_log', {}), 'entries', [])
+  if !empty(entries) && get(entries[0], 'empty', 0)
+    let rev = '@-'
+  endif
+  return 'JJ bookmark set ' . fnameescape(name) . ' -r ' . rev
 endfunction
 
 function! s:RebaseArgument() abort

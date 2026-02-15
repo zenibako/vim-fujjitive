@@ -560,6 +560,15 @@ coo                     Deprecated in favor of |co|.
 
 cb<Space>               Populate command line with ":JJ bookmark ".
 
+cb<CR>                  List all bookmarks.
+
+                                                *fujjitive_cB*
+cB                      Set the bookmark under the cursor to the current
+                        working copy revision.  When the working copy is
+                        empty (no changes), the bookmark is set to the
+                        parent revision (`@-`) instead.  Only works on
+                        local bookmark lines in the Bookmarks section.
+
 co<Space>               Populate command line with ":JJ edit ".
 
 cb?                     Show this help.
