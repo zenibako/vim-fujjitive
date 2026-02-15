@@ -322,6 +322,8 @@ U                       Restore all working copy changes (using `jj restore`).
 X                       Discard the change under the cursor.  For files in
                         the working copy, this restores from the parent using
                         `jj restore`.  For commits, this runs `jj abandon`.
+                        For bookmarks, this runs `jj bookmark delete` (local)
+                        or `jj bookmark untrack` (remote).
                         Use `jj undo` to reverse the operation.
 
                                                 *fujjitive_=*

@@ -2837,8 +2837,8 @@ function! s:MapStatus() abort
   call s:Map('n', 'R', ":echohl WarningMsg<Bar>echo 'Reloading is automatic.  Use :e to force'<Bar>echohl NONE<CR>", '<silent>', 0, 'Reload (automatic)')
   call s:Map('n', 'g<Bar>', ":<C-U>echoerr 'Changed to X'<CR>", '<silent><unique>', 0, 'Restore (removed, use X)')
   call s:Map('x', 'g<Bar>', ":<C-U>echoerr 'Changed to X'<CR>", '<silent><unique>', 0, 'Restore (removed, use X)')
-  call s:Map('n', 'X', ":<C-U>execute <SID>StageDelete(line('.'), 0, v:count)<CR>", '<silent>', 0, 'Discard changes / restore file')
-  call s:Map('x', 'X', ":<C-U>execute <SID>StageDelete(line(\"'<\"), line(\"'>\"), v:count)<CR>", '<silent>', 0, 'Discard changes / restore selection')
+  call s:Map('n', 'X', ":<C-U>execute <SID>StageDelete(line('.'), 0, v:count)<CR>", '<silent>', 0, 'Discard change / delete bookmark')
+  call s:Map('x', 'X', ":<C-U>execute <SID>StageDelete(line(\"'<\"), line(\"'>\"), v:count)<CR>", '<silent>', 0, 'Discard change / delete bookmark')
   call s:Map('n', 'gI', ":<C-U>execute <SID>StageIgnore(line('.'), line('.'), v:count)<CR>", '<silent>', 0, 'Add to .gitignore')
   call s:Map('x', 'gI', ":<C-U>execute <SID>StageIgnore(line(\"'<\"), line(\"'>\"), v:count)<CR>", '<silent>', 0, 'Add to .gitignore')
   call s:Map('n', '.', ':<C-U> <C-R>=<SID>StageArgs(0)<CR><Home>', '', 0, 'Populate command line')
@@ -5074,6 +5074,36 @@ function! s:StageDelete(lnum1, lnum2, count) abort
     let commits = map(filter(copy(selection), 'len(v:val.commit)'), 'v:val.commit')
     if !empty(commits)
       call feedkeys(':JJ abandon ' . join(commits, ' '))
+    endif
+    return ''
+  endif
+
+  " Handle bookmarks section: X on a bookmark line deletes/untracks it.
+  " Local bookmarks use `jj bookmark delete`, remote bookmarks use
+  " `jj bookmark untrack`.  The command is placed on the command line via
+  " feedkeys so the user must press Enter to confirm.
+  if log_heading ==# 'Bookmarks'
+    return ''
+  endif
+  if !empty(selection) && get(selection[0], 'section', '') ==# 'Bookmarks'
+    let local_names = []
+    let remote_args = []
+    for sel in selection
+      let bname = matchstr(getline(sel.lnum), '^\S\+')
+      if empty(bname)
+        continue
+      endif
+      if bname =~# '@'
+        let parts = split(bname, '@')
+        call add(remote_args, {'name': parts[0], 'remote': parts[1]})
+      else
+        call add(local_names, fnameescape(bname))
+      endif
+    endfor
+    if !empty(local_names)
+      call feedkeys(':JJ bookmark delete ' . join(local_names, ' '))
+    elseif !empty(remote_args)
+      call feedkeys(':JJ bookmark untrack ' . fnameescape(remote_args[0].name) . ' --remote ' . fnameescape(remote_args[0].remote))
     endif
     return ''
   endif
