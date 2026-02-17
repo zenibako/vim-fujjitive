@@ -351,17 +351,20 @@ I                       Invoke interactive split (|:JJ| split --interactive)
 Diff maps ~
                                                 *fujjitive_dp*
 dp                      Invoke |:JJ| diff on the file under the cursor.
+                        On a revision line, show that revision's diff.
                         Deprecated in favor of inline diffs.
 
                                                 *fujjitive_dd*
 dd                      Perform a |:Gdiffsplit| on the file under the cursor.
+                        On a revision line, show that revision's diff.
 
                                                 *fujjitive_dv*
 dv                      Perform a |:Gvdiffsplit| on the file under the cursor.
+                        On a revision line, show that revision's diff.
 
                                                 *fujjitive_ds* *fujjitive_dh*
 ds                      Perform a |:Ghdiffsplit| on the file under the cursor.
-dh
+dh                      On a revision line, show that revision's diff.
 
                                                 *fujjitive_dq*
 dq                      Close all but the currently focused diff buffer, and

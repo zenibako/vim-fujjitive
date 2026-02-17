@@ -5007,6 +5007,8 @@ function! s:StageDiff(diff) abort
     else
       return 'JJ --paginate diff -- ' . info.paths[0]
     endif
+  elseif empty(info.paths) && !empty(info.commit)
+    return 'JJ --paginate diff -r ' . info.commit
   elseif empty(info.paths)
     return 'JJ --paginate diff'
   elseif len(info.paths) > 1
@@ -5023,6 +5025,9 @@ endfunction
 
 function! s:StageDiffEdit() abort
   let info = s:StageInfo(line('.'))
+  if empty(info.paths) && !empty(info.commit)
+    return 'JJ --paginate diff -r ' . info.commit
+  endif
   let arg = (empty(info.paths) ? s:Tree() : info.paths[0])
   return 'JJ --paginate diff '.s:fnameescape(arg)
 endfunction
