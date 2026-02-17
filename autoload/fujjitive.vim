@@ -7945,9 +7945,9 @@ function! s:MapGitOps(is_ftplugin) abort
 
   exe s:Map('n', 'cf', ':<C-U>echoerr "fujjitive: JJ has no fixup commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Fixup (N/A, use squash)')
   exe s:Map('n', 'cF', ':<C-U>echoerr "fujjitive: JJ has no fixup commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Fixup (N/A, use squash)')
-  exe s:Map('n', 'cs', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Squash! (N/A, use squash)')
-  exe s:Map('n', 'cS', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Squash! (N/A, use squash)')
-  exe s:Map('n', 'cn', ':<C-U>echoerr "fujjitive: JJ has no squash! commits. Use :JJ squash instead"<CR>', '<silent>', ft, 'Squash! (N/A, use squash)')
+  exe s:Map('n', 'cs', ':<C-U>JJ squash<CR>', '<silent>', ft, 'Squash into parent')
+  exe s:Map('n', 'cS', ':<C-U>JJ squash<CR>', '<silent>', ft, 'Squash into parent')
+  exe s:Map('n', 'cn', ':<C-U>JJ new<CR>', '<silent>', ft, 'New change')
   exe s:Map('n', 'cA', ':<C-U>echoerr "Use cn"<CR>', '<silent><unique>', ft, 'Amend (removed, use cn)')
   exe s:Map('n', 'c?', ':<C-U>help fujjitive_c<CR>', '<silent>', ft, 'Commit help')
 

@@ -522,12 +522,13 @@ cf                      Not available.  JJ does not have fixup commits.
 
 cF                      Not available.  See |cf|.
 
-cs                      Not available.  JJ does not have squash! commits.
-                        Use |:JJ| squash to squash changes directly.
+cs                      Squash changes into the parent change without editing
+                        the message (using `jj squash`).  Same as |ce|.
 
-cS                      Not available.  See |cs|.
+cS                      Same as |cs|.
 
-cn                      Not available.  See |cs|.
+cn                      Create a new empty change on top of the current
+                        working copy parent (using `jj new`).
 
 c<Space>                Populate command line with ":JJ commit ".
 
