@@ -2081,7 +2081,7 @@ function! s:Expand(rev, ...) abort
   elseif a:rev =~# '^>[> ]\@!' && @% !~# '^fujjitive:' && s:Slash(@%) =~# '://\|^$'
     let file = '%'
   elseif a:rev ==# '>:'
-    let file = empty(s:DirCommitFile(@%)[0]) ? ':0:%' : '%'
+    let file = empty(s:DirCommitFile(@%)[0]) ? '@-:%' : '%'
   elseif a:rev =~# '^>[> ]\@!'
     let rev = (a:rev =~# '^>[~^]' ? '!' : '') . a:rev[1:-1]
     let prefix = matchstr(rev, '^\%(\\.\|{[^{}]*}\|[^:]\)*')
@@ -2322,9 +2322,8 @@ function! s:BlobTemp(url) abort
     endif
   endif
   if commit =~# '^\d$' || !filereadable(tempfile)
-    let rev = s:DirRev(a:url)[1]
-    let blob_or_filters = fujjitive#GitVersion(2, 11) ? '--filters' : 'blob'
-    let exec_error = s:StdoutToFile(tempfile, [dir, 'cat-file', blob_or_filters, rev])[1]
+    " Use 'jj file show' to read file content at a specific revision.
+    let exec_error = s:StdoutToFile(tempfile, [dir, 'file', 'show', '-r', commit, file[1:]])[1]
     if exec_error
       call delete(tempfile)
       return ''
@@ -3159,18 +3158,32 @@ function! fujjitive#BufReadCmd(...) abort
   if rev ==# ':'
     return fujjitive#BufReadStatus(v:cmdbang)
   endif
-  try
+   try
     if rev =~# '^:\d$'
       let b:fujjitive_type = 'stage'
     else
-      " Use 'jj log' to verify the revision is valid.  jj does not have
-      " git's cat-file or distinct blob/tree/tag types — every valid
-      " revision is a commit.
-      let r = fujjitive#Execute([dir, 'log', '--no-graph', '-r', rev, '-T', 'commit_id', '--limit', '1'])
-      if !r.exit_status && get(r.stdout, 0, '') =~# '^[0-9a-f]\{40,\}$'
-        let b:fujjitive_type = 'commit'
+      " Detect blob references: a revision followed by a file path
+      " (e.g. 'abc123...:path/to/file' or '@-:path/to/file').
+      " jj has no git-style cat-file; use 'jj file show' for blobs.
+      let blob_commit = matchstr(rev, '^\x\{40,\}\ze:')
+      let blob_path = matchstr(rev, '^\x\{40,\}:\zs.*')
+      if !empty(blob_commit) && !empty(blob_path)
+        let r = fujjitive#Execute([dir, 'log', '--no-graph', '-r', blob_commit, '-T', 'commit_id', '--limit', '1'])
+        if !r.exit_status && get(r.stdout, 0, '') =~# '^[0-9a-f]\{40,\}$'
+          let b:fujjitive_type = 'blob'
+        else
+          let b:fujjitive_type = ''
+        endif
       else
-        let b:fujjitive_type = ''
+        " Use 'jj log' to verify the revision is valid.  jj does not have
+        " git's cat-file or distinct blob/tree/tag types — every valid
+        " revision is a commit.
+        let r = fujjitive#Execute([dir, 'log', '--no-graph', '-r', rev, '-T', 'commit_id', '--limit', '1'])
+        if !r.exit_status && get(r.stdout, 0, '') =~# '^[0-9a-f]\{40,\}$'
+          let b:fujjitive_type = 'commit'
+        else
+          let b:fujjitive_type = ''
+        endif
       endif
       if r.exit_status
         let error = substitute(join(r.stderr, "\n"), "\n*$", '', '')
@@ -3179,13 +3192,8 @@ function! fujjitive#BufReadCmd(...) abort
         if empty(&bufhidden)
           setlocal bufhidden=delete
         endif
-        if rev =~# '^:\d:'
-          let &l:readonly = !filewritable(fujjitive#Find('.jj/index', dir))
-          return 'doautocmd BufNewFile'
-        else
-          setlocal readonly nomodifiable
-          return 'doautocmd BufNewFile|echo ' . string(error)
-        endif
+        setlocal readonly nomodifiable
+        return 'doautocmd BufNewFile|echo ' . string(error)
       elseif b:fujjitive_type !~# '^\%(tag\|commit\|tree\|blob\)$'
         return "echoerr ".string("fujjitive: unrecognized jj type '".b:fujjitive_type."'")
       endif
@@ -3243,8 +3251,10 @@ function! fujjitive#BufReadCmd(...) abort
       elseif b:fujjitive_type ==# 'stage'
         call s:ReplaceCmd([dir, 'ls-files', '--stage'])
       elseif b:fujjitive_type ==# 'blob'
-        let blob_or_filters = rev =~# ':' && fujjitive#GitVersion(2, 11) ? '--filters' : 'blob'
-        call s:ReplaceCmd([dir, 'cat-file', blob_or_filters, rev])
+        " Load file content at a specific revision using 'jj file show'.
+        let blob_rev = matchstr(rev, '^\x\{40,\}\ze:')
+        let blob_file = matchstr(rev, '^\x\{40,\}:\zs.*')
+        call s:ReplaceCmd([dir, 'file', 'show', '-r', blob_rev, blob_file])
       endif
     finally
       keepjumps call setpos('.',pos)
@@ -4991,10 +5001,10 @@ function! s:StageDiff(diff) abort
   elseif empty(info.paths)
     return 'JJ --paginate diff'
   elseif len(info.paths) > 1
-    execute 'Gedit' . prefix s:fnameescape(':0:' . info.paths[0])
+    execute 'Gedit' . prefix s:fnameescape('@-:' . info.paths[0])
     return 'keepalt ' . a:diff . '! @:'.s:fnameescape(info.paths[1])
   elseif info.sigil ==# '-'
-    execute 'Gedit' prefix s:fnameescape(':0:'.info.paths[0])
+    execute 'Gedit' prefix s:fnameescape('@-:'.info.paths[0])
     return 'keepalt ' . a:diff . '! :(top)%'
   else
     execute 'Gedit' prefix s:fnameescape(':(top)'.info.paths[0])
@@ -5688,7 +5698,7 @@ function! s:DifftoolSubcommand(line1, line2, range, bang, mods, options) abort
   if len(commits) < 2
     call add(commits, {'prefix': ':(top)'})
     if len(commits) < 2
-      call insert(commits, {'prefix': ':0:', 'module': ':0:'})
+      call insert(commits, {'prefix': '@-:', 'module': '@-:'})
     endif
   endif
   if reverse
@@ -5767,7 +5777,7 @@ let s:grep_combine_flags = '[aiIrhHEGPFnlLzocpWq]\{-\}'
 function! s:GrepOptions(args, dir) abort
   let options = {'name_only': 0, 'name_count': 0, 'line_number': 0}
   let tree = s:Tree(a:dir)
-  let prefix = empty(tree) ? fujjitive#Find(':0:', a:dir) :
+  let prefix = empty(tree) ? fujjitive#Find('@:', a:dir) :
         \ s:VimSlash(tree . '/')
   let options.prefix = prefix
   for arg in a:args
@@ -6413,7 +6423,7 @@ function! fujjitive#WriteCommand(line1, line2, range, bang, mods, arg, ...) abor
   endfor
 
   unlet! restorewinnr
-  let zero = fujjitive#Find(':0:'.file)
+  let zero = fujjitive#Find('@:'.file)
   exe s:DoAutocmd('BufWritePost ' . s:fnameescape(zero))
   for tab in range(1,tabpagenr('$'))
     for winnr in range(1,tabpagewinnr(tab,'$'))
@@ -6605,7 +6615,7 @@ function! fujjitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
     if commit =~# '^1\=$' && s:IsConflicted()
       let parents = [s:Relative(':2:'), s:Relative(':3:')]
     elseif empty(commit)
-      let parents = [s:Relative(':0:')]
+      let parents = [s:Relative('@-:')]
     elseif commit =~# '^\d\=$'
       let parents = [s:Relative('@:')]
     elseif commit =~# '^\x\x\+$'
@@ -6648,7 +6658,7 @@ function! fujjitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
         let file = s:Relative()
       elseif arg ==# ':'
         exe s:DirCheck()
-        let file = len(commit) ? s:Relative() : s:Relative(s:IsConflicted() ? ':1:' : ':0:')
+        let file = len(commit) ? s:Relative() : s:Relative(s:IsConflicted() ? ':1:' : '@-:')
       elseif arg =~# '^:\d$'
         exe s:DirCheck()
         let file = s:Relative(arg . ':')
@@ -6680,7 +6690,7 @@ function! fujjitive#Diffsplit(autodir, keepfocus, mods, arg, ...) abort
       endif
     else
       exe s:DirCheck()
-      let file = s:Relative(':0:')
+      let file = s:Relative('@-:')
       let mods = s:Mods(a:mods, 'leftabove')
     endif
     let spec = s:Generate(file)
@@ -6769,7 +6779,7 @@ function! s:Move(force, rename, destination) abort
       return 'keepalt saveas! '.s:fnameescape(destination) . reload
     endif
   else
-    return 'file '.s:fnameescape(fujjitive#Find(':0:'.destination, dir)) . reload
+    return 'file '.s:fnameescape(fujjitive#Find('@:'.destination, dir)) . reload
   endif
 endfunction
 
@@ -8082,7 +8092,7 @@ function! s:CfilePorcelain(...) abort
     if info.sigil !=# '-'
       return [lead . info.relative[0], info.offset, 'normal!zv']
     else
-      return [':0:' . info.relative[0], info.offset, 'normal!zv']
+      return ['@-:' . info.relative[0], info.offset, 'normal!zv']
     endif
   elseif len(info.paths)
     return [lead . info.relative[0]]
@@ -8277,8 +8287,9 @@ function! s:cfile() abort
       let prefixes = {
             \ '1': '',
             \ '2': '',
-            \ 'b': ':0:',
-            \ 'i': ':0:',
+            \ 'a': '@-:',
+            \ 'b': '',
+            \ 'i': '',
             \ 'o': '',
             \ 'w': ''}
 

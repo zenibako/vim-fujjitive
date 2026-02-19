@@ -277,4 +277,134 @@ fi
 
 cleanup
 
+# ── Integration: dd on modified file opens diff with content on both sides ──
+
+setup_jj_repo
+
+# Create a parent commit with file content, then a new working copy with changes
+(
+  cd "$TEST_REPO"
+  jj new -m "test: working copy" 2>/dev/null
+  echo "modified line" >> file.txt
+)
+
+if run_nvim_test_in "$TEST_REPO" <<'VIMSCRIPT'
+edit file.txt
+
+" Open the status buffer
+J
+
+" Wait for status to load
+sleep 500m
+
+" Verify we're in a fujjitive buffer
+if &filetype !=# 'fujjitive'
+  echoerr 'Expected filetype=fujjitive, got: ' . &filetype
+  cquit 1
+endif
+
+" Find the line with 'M file.txt' in the Changes section
+let found_lnum = 0
+for lnum in range(1, line('$'))
+  if getline(lnum) =~# '^M file\.txt'
+    let found_lnum = lnum
+    break
+  endif
+endfor
+
+if found_lnum == 0
+  echoerr 'Could not find "M file.txt" line in status buffer. Contents: ' . join(getline(1, '$'), ' | ')
+  cquit 1
+endif
+
+" Move cursor to the modified file line
+execute 'normal! ' . found_lnum . 'G'
+
+" Execute dd to open the diff split
+execute "normal dd"
+
+" Wait for buffers to load
+sleep 1000m
+
+" We should now have a diff split with two windows
+if winnr('$') < 2
+  echoerr 'Expected at least 2 windows for diff split, got: ' . winnr('$')
+  cquit 1
+endif
+
+" Check that both windows have content (not empty buffers)
+let win1_lines = line('$')
+wincmd w
+let win2_lines = line('$')
+
+if win1_lines <= 1
+  echoerr 'Left diff buffer appears empty (lines: ' . win1_lines . ')'
+  cquit 1
+endif
+
+if win2_lines <= 1
+  echoerr 'Right diff buffer appears empty (lines: ' . win2_lines . ')'
+  cquit 1
+endif
+
+" Verify both windows are in diff mode
+wincmd w
+if !&diff
+  echoerr 'First window is not in diff mode'
+  cquit 1
+endif
+wincmd w
+if !&diff
+  echoerr 'Second window is not in diff mode'
+  cquit 1
+endif
+VIMSCRIPT
+then pass "dd on modified file opens diff with content on both sides"
+else fail "dd on modified file opens diff with content on both sides"
+fi
+
+cleanup
+
+# ── Integration: BufReadCmd loads blob content for commit:path URIs ─────────
+
+setup_jj_repo
+
+(
+  cd "$TEST_REPO"
+  jj new -m "test: blob loading" 2>/dev/null
+)
+
+if run_nvim_test_in "$TEST_REPO" <<'VIMSCRIPT'
+" Get the parent commit hash
+let parent_hash = trim(system('jj log --no-graph -r @- -T commit_id --limit 1'))
+if empty(parent_hash)
+  echoerr 'Could not get parent commit hash'
+  cquit 1
+endif
+
+" Open the file at the parent revision using the fujjitive URI scheme
+execute 'Gedit ' . parent_hash . ':file.txt'
+
+" Wait for buffer to load
+sleep 500m
+
+" The buffer should have content
+let content = join(getline(1, '$'), "\n")
+if content !~# 'test content'
+  echoerr 'Blob buffer does not contain expected content. Got: ' . content
+  cquit 1
+endif
+
+" Buffer type should be blob
+if get(b:, 'fujjitive_type', '') !=# 'blob'
+  echoerr 'Expected b:fujjitive_type=blob, got: ' . get(b:, 'fujjitive_type', '(unset)')
+  cquit 1
+endif
+VIMSCRIPT
+then pass "BufReadCmd loads file content at parent revision"
+else fail "BufReadCmd loads file content at parent revision"
+fi
+
+cleanup
+
 finish
