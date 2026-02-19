@@ -2806,6 +2806,7 @@ function! s:MapStatus() abort
   call s:Map('n', 'u', ":<C-U>execute <SID>Do('Squash',0)<CR>", '<silent>', 0, 'Squash (unstage) file')
   call s:Map('x', 'u', ":<C-U>execute <SID>Do('Squash',1)<CR>", '<silent>', 0, 'Squash (unstage) selection')
   call s:Map('n', 'U', ":<C-U>JJ restore<CR>", '<silent>', 0, 'Restore all (discard changes)')
+  call s:Map('n', 'P', ":execute <SID>StagePush()<CR>", '<silent>', 0, 'Push to remote')
   call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Changes')", 'Jump to Untracked section')
   call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Changes', 'Untracked')", 'Jump to Changes section')
   call s:MapMotion('gc', "exe <SID>StageJump(v:count, 'Ancestors')", 'Jump to Ancestors section')
@@ -2998,10 +2999,10 @@ function! s:StatusRender(stat) abort
     call s:AddSection(to, 'Untracked', untracked)
 
     call s:AddLogSection(to, 'Ancestors', stat.ancestors_log)
-    call s:AddLogSection(to, 'Other mutable', stat.other_mutable_log)
-    call s:AddBookmarkSection(to, 'Bookmarks', stat.bookmarks_list)
     call s:AddLogSection(to, 'Unpushed', stat.unpushed_log)
     call s:AddLogSection(to, 'Unpulled', stat.unpulled_log)
+    call s:AddLogSection(to, 'Other mutable', stat.other_mutable_log)
+    call s:AddBookmarkSection(to, 'Bookmarks', stat.bookmarks_list)
 
     let bufnr = stat.bufnr
     setlocal noreadonly modifiable
@@ -5208,6 +5209,18 @@ endfunction
 
 function! s:DoToggleHelpHeader(value) abort
   exe 'help fujjitive-maps'
+endfunction
+
+function! s:StagePush() abort
+  let stat = get(b:, 'fujjitive_status', {})
+  let remote = get(stat, 'push_remote', '')
+  let branch = substitute(get(stat, 'push', ''), '^ref/heads/', '', '')
+  if empty(remote) || empty(branch)
+    call feedkeys(':JJ push')
+  else
+    call feedkeys(':JJ push ' . remote . ' ' . branch)
+  endif
+  return ''
 endfunction
 
 function! s:DoStagePushHeader(value) abort
