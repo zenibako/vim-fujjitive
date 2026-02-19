@@ -3252,9 +3252,17 @@ function! fujjitive#BufReadCmd(...) abort
         call s:ReplaceCmd([dir, 'ls-files', '--stage'])
       elseif b:fujjitive_type ==# 'blob'
         " Load file content at a specific revision using 'jj file show'.
+        " If the file does not exist at the revision (e.g. newly added
+        " files diffed against @-), leave the buffer empty.
         let blob_rev = matchstr(rev, '^\x\{40,\}\ze:')
         let blob_file = matchstr(rev, '^\x\{40,\}:\zs.*')
-        call s:ReplaceCmd([dir, 'file', 'show', '-r', blob_rev, blob_file])
+        let temp = tempname()
+        let [err, exec_error] = s:StdoutToFile(temp, [dir, 'file', 'show', '-r', blob_rev, blob_file])
+        if !exec_error
+          silent exe 'lockmarks keepalt noautocmd 0read ++edit' s:fnameescape(temp)
+          silent keepjumps $delete _
+        endif
+        call delete(temp)
       endif
     finally
       keepjumps call setpos('.',pos)

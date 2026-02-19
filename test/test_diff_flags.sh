@@ -407,4 +407,82 @@ fi
 
 cleanup
 
+# ── Integration: dd on a newly added file does not error ────────────────────
+
+setup_jj_repo
+
+# Create a parent commit, then add a new file in the working copy
+(
+  cd "$TEST_REPO"
+  jj new -m "test: new file diff" 2>/dev/null
+  echo "brand new content" > newfile.txt
+)
+
+if run_nvim_test_in "$TEST_REPO" <<'VIMSCRIPT'
+edit newfile.txt
+
+" Open the status buffer
+J
+
+" Wait for status to load
+sleep 500m
+
+" Find the line with 'A newfile.txt'
+let found_lnum = 0
+for lnum in range(1, line('$'))
+  if getline(lnum) =~# '^A newfile\.txt'
+    let found_lnum = lnum
+    break
+  endif
+endfor
+
+if found_lnum == 0
+  echoerr 'Could not find "A newfile.txt" line. Contents: ' . join(getline(1, '$'), ' | ')
+  cquit 1
+endif
+
+" Move cursor to the new file line and execute dd
+execute 'normal! ' . found_lnum . 'G'
+execute "normal dd"
+
+" Wait for buffers to load
+sleep 1000m
+
+" Should have a diff split with 2 windows and no errors
+if winnr('$') < 2
+  echoerr 'Expected at least 2 windows for diff split, got: ' . winnr('$')
+  cquit 1
+endif
+
+" Verify both windows are in diff mode, and at least one has content.
+" For a new file the "before" side (parent) is empty, the "after"
+" side (working copy) has content.
+let diff_wins = 0
+let content_wins = 0
+for w in range(1, winnr('$'))
+  execute w . 'wincmd w'
+  if &diff
+    let diff_wins += 1
+    if line('$') > 1 || (line('$') == 1 && getline(1) !=# '')
+      let content_wins += 1
+    endif
+  endif
+endfor
+
+if diff_wins < 2
+  echoerr 'Expected 2 diff windows, got: ' . diff_wins
+  cquit 1
+endif
+
+if content_wins < 1
+  echoerr 'Expected at least 1 diff window with content, got: ' . content_wins
+  cquit 1
+endif
+VIMSCRIPT
+then pass "dd on newly added file does not error"
+else fail "dd on newly added file does not error"
+fi
+
+cleanup
+
 finish
