@@ -2998,9 +2998,9 @@ function! s:StatusRender(stat) abort
     call s:AddDiffSection(to, stat, 'Unstaged', unstaged, 'Changes')
     call s:AddSection(to, 'Untracked', untracked)
 
-    call s:AddLogSection(to, 'Ancestors', stat.ancestors_log)
     call s:AddLogSection(to, 'Unpushed', stat.unpushed_log)
     call s:AddLogSection(to, 'Unpulled', stat.unpulled_log)
+    call s:AddLogSection(to, 'Ancestors', stat.ancestors_log)
     call s:AddLogSection(to, 'Other mutable', stat.other_mutable_log)
     call s:AddBookmarkSection(to, 'Bookmarks', stat.bookmarks_list)
 
@@ -3048,12 +3048,12 @@ function! s:StatusRetrieve(bufnr, ...) abort
 
     " Fetch commit log sections for the summary buffer
     let stat.working_copy_log = s:QueryLog('@', 2, dir)
-    let stat.ancestors_log = s:QueryLog('::@- & mutable()', 50, dir)
+    let stat.unpushed_log = s:QueryLog('remote_bookmarks()..bookmarks()', 256, dir)
+    let stat.ancestors_log = s:QueryLog('(::@- & mutable()) ~ (remote_bookmarks()..bookmarks())', 50, dir)
     let stat.other_mutable_log = s:QueryLog('mutable() ~ ::@', 50, dir)
     " Omit empty revisions with no description from 'Other mutable',
     " but keep workspace working copies.
     call filter(stat.other_mutable_log.entries, '!(v:val.empty && empty(v:val.subject) && empty(v:val.working_copies))')
-    let stat.unpushed_log = s:QueryLog('remote_bookmarks()..bookmarks()', 256, dir)
     let stat.unpulled_log = s:QueryLog('bookmarks()..remote_bookmarks()', 256, dir)
     let stat.bookmarks_list = s:QueryBookmarks(dir)
   endif
@@ -5212,25 +5212,30 @@ function! s:DoToggleHelpHeader(value) abort
 endfunction
 
 function! s:StagePush() abort
-  let stat = get(b:, 'fujjitive_status', {})
-  let remote = get(stat, 'push_remote', '')
-  let branch = substitute(get(stat, 'push', ''), '^ref/heads/', '', '')
-  if empty(remote) || empty(branch)
-    call feedkeys(':JJ push')
-  else
-    call feedkeys(':JJ push ' . remote . ' ' . branch)
+  let info = s:StageInfo()
+  if info.section ==# 'Bookmarks'
+    let name = matchstr(getline('.'), '^\S\+')
+    if !empty(name) && name !~# '@'
+      " Use @- (parent) when the working copy is empty, @ otherwise.
+      let rev = '@'
+      let stat = get(b:, 'fujjitive_status', {})
+      let entries = get(get(stat, 'working_copy_log', {}), 'entries', [])
+      if !empty(entries) && get(entries[0], 'empty', 0)
+        let rev = '@-'
+      endif
+      call feedkeys(':JJ bookmark set ' . fnameescape(name) . ' -r ' . rev . ' && JJ git push')
+      return ''
+    endif
+  elseif (info.section ==# 'Unpushed' || info.section ==# 'Ancestors') && !empty(info.commit)
+    call feedkeys(':JJ git push -r ' . info.commit)
+    return ''
   endif
+  call feedkeys(':JJ git push')
   return ''
 endfunction
 
 function! s:DoStagePushHeader(value) abort
-  let stat = get(b:, 'fujjitive_status', {})
-  let remote = get(stat, 'push_remote', '')
-  let branch = substitute(get(stat, 'push', ''), '^ref/heads/', '', '')
-  if empty(remote) || empty(branch)
-    return
-  endif
-  call feedkeys(':JJ push ' . remote . ' ' . branch)
+  call feedkeys(':JJ git push')
 endfunction
 
 function! s:DoTogglePushHeader(value) abort
@@ -5238,13 +5243,7 @@ function! s:DoTogglePushHeader(value) abort
 endfunction
 
 function! s:DoStageUnpushedHeading(heading) abort
-  let stat = get(b:, 'fujjitive_status', {})
-  let remote = get(stat, 'push_remote', '')
-  let push = get(stat, 'push', '')
-  if empty(remote) || empty(push)
-    return
-  endif
-  call feedkeys(':JJ push ' . remote . ' ' . '@:' . push)
+  call feedkeys(':JJ git push')
 endfunction
 
 function! s:DoToggleUnpushedHeading(heading) abort
@@ -5252,13 +5251,7 @@ function! s:DoToggleUnpushedHeading(heading) abort
 endfunction
 
 function! s:DoStageUnpushed(record) abort
-  let stat = get(b:, 'fujjitive_status', {})
-  let remote = get(stat, 'push_remote', '')
-  let push = get(stat, 'push', '')
-  if empty(remote) || empty(push)
-    return
-  endif
-  call feedkeys(':JJ push ' . remote . ' ' . a:record.commit . ':' . push)
+  call feedkeys(':JJ git push')
 endfunction
 
 function! s:DoToggleUnpushed(record) abort
