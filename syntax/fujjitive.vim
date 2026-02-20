@@ -23,15 +23,15 @@ syn match fujjitiveInstruction /^\l\l\+\>/ contained containedin=@fujjitiveSecti
 syn match fujjitiveDone /^done\>/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash,fujjitiveChangeId skipwhite
 syn match fujjitiveStop /^stop\>/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash,fujjitiveChangeId skipwhite
 syn match fujjitiveModifier /^[MADRCU?]\{1,2} / contained containedin=@fujjitiveSection
-syn match fujjitiveSymbolicRef /\.\@!\%(\.\.\@!\|[^[:space:][:cntrl:]\:.]\)\+\.\@<!/ contained
+syn match fujjitiveSymbolicRef /\.\@!\%(\.\.\@!\|[^[:space:][:cntrl:]\:.]\)\+\.\@<!/ contained nextgroup=fujjitiveEmpty,fujjitiveConflict skipwhite
 
 " Hex commit hashes (git-style, [0-9a-f])
-syn match fujjitiveHash /^\x\{4,\}\S\@!/ contained containedin=@fujjitiveSection
-syn match fujjitiveHash /\S\@<!\x\{4,\}\S\@!/ contained
+syn match fujjitiveHash /^\x\{4,\}\S\@!/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash,fujjitiveChangeId,fujjitiveWorkspaceName,fujjitiveSymbolicRef,fujjitiveEmpty,fujjitiveConflict skipwhite
+syn match fujjitiveHash /\S\@<!\x\{4,\}\S\@!/ contained nextgroup=fujjitiveHash,fujjitiveChangeId,fujjitiveWorkspaceName,fujjitiveSymbolicRef,fujjitiveEmpty,fujjitiveConflict skipwhite
 
 " JJ change IDs ([k-z]) — displayed as the shortest unique prefix
-syn match fujjitiveChangeId /^[k-z]\+\S\@!/ contained containedin=@fujjitiveSection
-syn match fujjitiveChangeId /\S\@<![k-z]\+\S\@!/ contained
+syn match fujjitiveChangeId /^[k-z]\+\S\@!/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash,fujjitiveChangeId,fujjitiveWorkspaceName,fujjitiveSymbolicRef,fujjitiveEmpty,fujjitiveConflict skipwhite
+syn match fujjitiveChangeId /\S\@<![k-z]\+\S\@!/ contained nextgroup=fujjitiveHash,fujjitiveChangeId,fujjitiveWorkspaceName,fujjitiveSymbolicRef,fujjitiveEmpty,fujjitiveConflict skipwhite
 
 syn region fujjitiveHunk start=/^\%(@@\+ -\)\@=/ end=/^\%([A-Za-z?@]\|$\)\@=/ contains=diffLine,diffRemoved,diffAdded,diffNoEOL containedin=@fujjitiveSection fold
 
@@ -62,11 +62,11 @@ syn match fujjitiveBookmarksHeading /^Bookmarks\ze (\d\++\=)$/ contained nextgro
 syn match fujjitiveBookmarkName /^\S\+/ contained containedin=fujjitiveBookmarksSection nextgroup=fujjitiveChangeId,fujjitiveHash skipwhite
 
 " Workspace indicators (e.g. default@, agent-2@) in log sections
-syn match fujjitiveWorkspaceName /\S\@<![a-zA-Z0-9_-]\+@\S\@!/ contained containedin=@fujjitiveSection
+syn match fujjitiveWorkspaceName /\S\@<![a-zA-Z0-9_-]\+@\S\@!/ contained containedin=@fujjitiveSection nextgroup=fujjitiveHash,fujjitiveChangeId,fujjitiveSymbolicRef,fujjitiveEmpty,fujjitiveConflict skipwhite
 
 " Markers for jj-specific commit metadata in log sections
-syn match fujjitiveEmpty /(empty)/ contained containedin=@fujjitiveSection
-syn match fujjitiveConflict /(conflict)/ contained containedin=@fujjitiveSection
+syn match fujjitiveEmpty /(empty)/ contained containedin=@fujjitiveSection nextgroup=fujjitiveConflict skipwhite
+syn match fujjitiveConflict /(conflict)/ contained containedin=@fujjitiveSection nextgroup=fujjitiveEmpty skipwhite
 
 hi def link fujjitiveHelpHeader fujjitiveHeader
 hi def link fujjitiveHeader Label
