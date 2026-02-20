@@ -5223,7 +5223,7 @@ function! s:StagePush() abort
       if !empty(entries) && get(entries[0], 'empty', 0)
         let rev = '@-'
       endif
-      call feedkeys(':JJ bookmark set ' . fnameescape(name) . ' -r ' . rev . ' && JJ git push')
+      call feedkeys(':JJ bookmark set ' . fnameescape(name) . ' -r ' . rev . ' | JJ git push')
       return ''
     endif
   elseif (info.section ==# 'Unpushed' || info.section ==# 'Ancestors') && !empty(info.commit)
