@@ -3048,7 +3048,7 @@ function! s:StatusRetrieve(bufnr, ...) abort
 
     " Fetch commit log sections for the summary buffer
     let stat.working_copy_log = s:QueryLog('@', 2, dir)
-    let stat.unpushed_log = s:QueryLog('remote_bookmarks()..bookmarks()', 256, dir)
+    let stat.unpushed_log = s:QueryLog('(remote_bookmarks()..bookmarks()) & ::@', 256, dir)
     let stat.ancestors_log = s:QueryLog('(::@- & mutable()) ~ (remote_bookmarks()..bookmarks())', 50, dir)
     let stat.other_mutable_log = s:QueryLog('mutable() ~ ::@', 50, dir)
     " Omit empty revisions with no description from 'Other mutable',
