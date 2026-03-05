@@ -4270,7 +4270,7 @@ function! s:StageSeek(info, fallback) abort
   let line = search('^' . escape(info.heading, '^$.*[]~\') . ' (\d\++\=)$', 'wn')
   if !line
     for section in get({'Staged': ['Unstaged', 'Untracked'], 'Unstaged': ['Untracked', 'Staged'], 'Untracked': ['Unstaged', 'Staged']}, info.section, [])
-      let line = search('^' . section, 'wn')
+      let line = search('^' . s:SectionDisplayLabel(section), 'wn')
       if line
         return line + (info.index > 0 ? 1 : 0)
       endif
@@ -4513,7 +4513,7 @@ function! s:StageInfo(...) abort
   let text = matchstr(getline(lnum), '^[A-Z?] \zs.*')
   let file = s:StatusSectionFile(heading, text)
   let relative = get(file, 'relative', len(text) ? [text] : [])
-  return {'section': matchstr(heading, '^\u\l\+'),
+  return {'section': s:NormalizeSection(matchstr(heading, '^\u\l\+')),
         \ 'heading': heading,
         \ 'sigil': sigil,
         \ 'offset': offset,
@@ -4568,7 +4568,7 @@ function! s:Selection(arg1, ...) abort
   let results = []
   let template = {
         \ 'heading': heading,
-        \ 'section': matchstr(heading, '^\u\l\+'),
+        \ 'section': s:NormalizeSection(matchstr(heading, '^\u\l\+')),
         \ 'filename': '',
         \ 'relative': [],
         \ 'paths': [],
@@ -4583,7 +4583,7 @@ function! s:Selection(arg1, ...) abort
     let heading = matchstr(line, '^\u\l\+\ze.\{-\}\ze (\d\++\=)$')
     if len(heading)
       let template.heading = heading
-      let template.section = matchstr(heading, '^\u\l\+')
+      let template.section = s:NormalizeSection(matchstr(heading, '^\u\l\+'))
       let template.index = 0
     elseif line =~# '^[ @\+-]'
       let template.index -= 1
@@ -4666,7 +4666,7 @@ function! s:Do(action, visual) abort
     if len(header) && exists('*s:Do' . a:action . header . 'Header')
       let reload = s:Do{a:action}{header}Header(matchstr(line, ': \zs.*')) > 0
     else
-      let section = matchstr(line, '^\S\+')
+      let section = s:NormalizeSection(matchstr(line, '^\S\+'))
       if exists('*s:Do' . a:action . section . 'Heading')
         let reload = s:Do{a:action}{section}Heading(line) > 0
       endif
@@ -4824,6 +4824,22 @@ endfunction
 
 let s:section_pattern = '^[A-Z][a-z][^:]*$'
 let s:section_commit_pattern = s:section_pattern . '\|^commit '
+
+" Map display-label section names back to internal handler names.
+" The 'Changes' display label (shown to users) maps to 'Unstaged' which is
+" used by all Do* handler functions and internal data structures.
+let s:section_display_to_internal = {'Changes': 'Unstaged'}
+
+function! s:NormalizeSection(section) abort
+  return get(s:section_display_to_internal, a:section, a:section)
+endfunction
+
+" Reverse mapping: internal section name to display label for buffer search.
+let s:section_internal_to_display = {'Unstaged': 'Changes'}
+
+function! s:SectionDisplayLabel(section) abort
+  return get(s:section_internal_to_display, a:section, a:section)
+endfunction
 
 function! s:NextSection(count) abort
   let orig = line('.')

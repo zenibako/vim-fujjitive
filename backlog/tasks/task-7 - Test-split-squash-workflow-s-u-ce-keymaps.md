@@ -1,10 +1,11 @@
 ---
 id: TASK-7
 title: 'Test split/squash workflow (s, u, -, ce keymaps)'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - claude
 created_date: '2026-03-05 16:43'
-updated_date: '2026-03-05 16:53'
+updated_date: '2026-03-05 19:30'
 labels:
   - test
   - status-buffer
