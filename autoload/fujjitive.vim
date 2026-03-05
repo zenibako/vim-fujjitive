@@ -2896,7 +2896,7 @@ function! s:StatusProcess(result, stat) abort
       let stat.branch = get(stat.props, 'working_copy', '')
     endif
 
-    let diff_cmd = stat.cmd + ['diff', '--color=never']
+    let diff_cmd = stat.cmd + ['diff', '--git', '--color=never']
     let stat.diff = {'Staged': {'stdout': ['']}, 'Unstaged': {'stdout': ['']}}
     if len(unstaged)
       let stat.diff['Unstaged'] = fujjitive#Execute(diff_cmd, function('len'))
@@ -4929,7 +4929,7 @@ function! s:StageInlineGetDiff(diff_section, info) abort
   if a:info.status ==# 'U'
     let diff_header = 'diff --cc ' . s:Quote(a:info.relative[0])
   else
-    let diff_header = 'diff --git ' . s:Quote(a:info.relative[-1]) . ' ' . s:Quote(a:info.relative[0])
+    let diff_header = 'diff --git a/' . s:Quote(a:info.relative[-1]) . ' b/' . s:Quote(a:info.relative[0])
   endif
   let stdout = fujjitive#Wait(a:diff_section).stdout
   let start = index(stdout, diff_header)
