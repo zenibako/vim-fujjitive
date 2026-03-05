@@ -2,13 +2,13 @@ project_name: "vim-fujjitive"
 default_status: "To Do"
 statuses: ["To Do", "In Progress", "Done"]
 labels: []
-milestones: []
+definition_of_done: ["All new tests pass locally via `bash test/run_tests.sh`", "Existing tests still pass (no regressions)", "vint lint passes: `vint -e plugin/ autoload/ ftplugin/ ftdetect/ syntax/`", "Tests follow established patterns from helpers.sh (setup_jj_repo / run_nvim_test_in / pass / fail / cleanup / finish)"]
 date_format: yyyy-mm-dd
 max_column_width: 20
 auto_open_browser: true
 default_port: 6420
 remote_operations: true
-auto_commit: true
+auto_commit: false
 bypass_git_hooks: false
 check_active_branches: true
 active_branch_days: 30

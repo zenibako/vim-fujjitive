@@ -191,7 +191,20 @@ VIMSCRIPT
 - **Ask before patching**: Open an issue to discuss before large changes
 - See `CONTRIBUTING.markdown` for full guidelines
 
+## Backlog.md
+
+This project uses Backlog.md MCP for task management. `auto_commit` is **disabled** in `backlog/config.yml` because the repository uses a non-colocated jj workspace where git is not directly accessible (Backlog.md's built-in git auto-commit fails with `git reset HEAD`).
+
+**After creating or editing backlog tasks**, commit the changes through jj:
+
+```bash
+jj describe -m "chore: <brief description of backlog changes>"
+jj new
+```
+
+This ensures backlog task files are captured in the jj change history. Do not attempt to commit backlog files via git directly — the git backend is managed by jj.
+
 ## Version Control
 
-This repository uses Jujutsu (jj) colocated with Git. 
+This repository uses Jujutsu (jj) with a separate workspace. The git backend is managed by jj — do not run git commands directly.
 Prefer `jj` commands and conventional commit messages (`fix:`, `feat:`, `chore:`, `test:`).
