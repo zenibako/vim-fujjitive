@@ -2808,12 +2808,14 @@ function! s:MapStatus() abort
   call s:Map('n', 'U', ":<C-U>JJ restore<CR>", '<silent>', 0, 'Restore all (discard changes)')
   call s:Map('n', 'P', ":execute <SID>StagePush()<CR>", '<silent>', 0, 'Push to remote')
   call s:MapMotion('gu', "exe <SID>StageJump(v:count, 'Untracked', 'Changes')", 'Jump to Untracked section')
+  call s:Map('n', 'ba', ":execute <SID>StageBookmarkAdvance()<CR>", '<silent>', 0, 'Advance bookmark')
   call s:MapMotion('gU', "exe <SID>StageJump(v:count, 'Changes', 'Untracked')", 'Jump to Changes section')
   call s:MapMotion('gc', "exe <SID>StageJump(v:count, 'Ancestors')", 'Jump to Ancestors section')
   call s:MapMotion('gm', "exe <SID>StageJump(v:count, 'Other mutable')", 'Jump to Other mutable section')
   call s:MapMotion('gb', "exe <SID>StageJump(v:count, 'Bookmarks')", 'Jump to Bookmarks section')
   call s:MapMotion('gp', "exe <SID>StageJump(v:count, 'Unpushed')", 'Jump to Unpushed section')
   call s:MapMotion('gP', "exe <SID>StageJump(v:count, 'Unpulled')", 'Jump to Unpulled section')
+  call s:MapMotion('ga', "exe <SID>StageJump(v:count, 'Ahead')", 'Jump to Ahead section')
   call s:Map('n', 'C', ":echoerr 'fujjitive: C has been removed in favor of cc'<CR>", '<silent><unique>', 0, 'Commit (removed, use cc)')
   call s:Map('n', 'i', ":<C-U>execute <SID>NextExpandedHunk(v:count1)<CR>", '<silent>', 0, 'Next expanded hunk')
   call s:Map('n', "=", ":<C-U>execute <SID>StageInline('toggle',line('.'),v:count)<CR>", '<silent>', 0, 'Toggle inline diff')
@@ -2990,6 +2992,7 @@ function! s:StatusRender(stat) abort
       call s:AddHeader(to, 'Error', s:worktree_error)
     endif
     call s:AddHeader(to, 'Help', 'g?')
+    call s:AddLogSection(to, 'Ahead', stat.ahead_log)
 
     " NOTE: The 'Unstaged' key is kept as the internal section identifier for
     " compatibility with existing diff expansion, file lookup, and keybinding
@@ -3039,6 +3042,7 @@ function! s:StatusRetrieve(bufnr, ...) abort
     let stat.other_mutable_log = empty_log
     let stat.unpushed_log = empty_log
     let stat.unpulled_log = empty_log
+    let stat.ahead_log = empty_log
     let stat.bookmarks_list = {'error': 0, 'entries': []}
   else
     let stat.rev_parse = fujjitive#Execute(rev_parse_cmd)
@@ -3055,6 +3059,7 @@ function! s:StatusRetrieve(bufnr, ...) abort
     " but keep workspace working copies.
     call filter(stat.other_mutable_log.entries, '!(v:val.empty && empty(v:val.subject) && empty(v:val.working_copies))')
     let stat.unpulled_log = s:QueryLog('bookmarks()..remote_bookmarks()', 256, dir)
+    let stat.ahead_log = s:QueryLog('heads(::@ & bookmarks())..@-', 50, dir)
     let stat.bookmarks_list = s:QueryBookmarks(dir)
   endif
   return stat
@@ -5252,6 +5257,16 @@ function! s:StagePush() abort
     return ''
   endif
   call feedkeys(':JJ git push')
+  return ''
+endfunction
+
+function! s:StageBookmarkAdvance() abort
+  let info = s:StageInfo()
+  if !empty(info.commit)
+    call feedkeys(':JJ bookmark advance --to ' . info.commit)
+  else
+    call feedkeys(':JJ bookmark advance')
+  endif
   return ''
 endfunction
 
