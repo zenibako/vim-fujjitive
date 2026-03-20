@@ -7,6 +7,8 @@
 #   - > forces expansion of inline diff
 #   - < forces collapse of inline diff
 #   - Expanded diff lines contain diff content (@@, +, - lines)
+#   - Edge cases: newly added file (no prior content), multiple files,
+#     = on non-file lines (headers, blank lines)
 
 source "$(dirname "$0")/helpers.sh"
 
@@ -316,6 +318,174 @@ endif
 VIMSCRIPT
 then pass "Expanded diff lines contain @@ headers and + lines"
 else fail "Expanded diff lines contain @@ headers and + lines"
+fi
+
+cleanup
+
+# ── Test: = on newly added file shows diff with only + lines ─────────────
+
+setup_jj_repo
+
+(
+  cd "$TEST_REPO"
+  jj new -m "add new file" 2>/dev/null
+  echo "brand new content" > newfile.txt
+)
+
+if run_nvim_test_in "$TEST_REPO" <<'VIMSCRIPT'
+edit newfile.txt
+J
+
+if !search('^A newfile\.txt')
+  echoerr 'newfile.txt not found as Added. Buffer: ' . join(getline(1, '$'), "\n")
+  cquit 1
+endif
+
+let file_lnum = line('.')
+
+" Expand
+execute "normal ="
+
+" All diff lines should be additions (+ lines) since file is new
+let has_hunk = 0
+let has_minus = 0
+let lnum = file_lnum + 1
+while lnum <= line('$')
+  let l = getline(lnum)
+  if l =~# '^@@'
+    let has_hunk = 1
+  elseif l =~# '^-'
+    let has_minus = 1
+  elseif l !~# '^[ @\+-]'
+    break
+  endif
+  let lnum += 1
+endwhile
+
+if !has_hunk
+  echoerr 'No @@ hunk header in new file diff'
+  cquit 1
+endif
+if has_minus
+  echoerr 'New file diff should not contain - (removal) lines'
+  cquit 1
+endif
+VIMSCRIPT
+then pass "= on newly added file shows diff with only + lines"
+else fail "= on newly added file shows diff with only + lines"
+fi
+
+cleanup
+
+# ── Test: = expands multiple files independently ─────────────────────────
+
+setup_jj_repo
+
+(
+  cd "$TEST_REPO"
+  jj new -m "modify two files" 2>/dev/null
+  echo "change A" >> file.txt
+  echo "change B" >> other.txt
+)
+
+if run_nvim_test_in "$TEST_REPO" <<'VIMSCRIPT'
+edit file.txt
+J
+
+let original = line('$')
+
+" Expand first file
+if !search('^M file\.txt')
+  echoerr 'file.txt not found. Buffer: ' . join(getline(1, '$'), "\n")
+  cquit 1
+endif
+execute "normal ="
+let after_first = line('$')
+
+" Expand second file
+if !search('^M other\.txt')
+  echoerr 'other.txt not found. Buffer: ' . join(getline(1, '$'), "\n")
+  cquit 1
+endif
+execute "normal ="
+let after_second = line('$')
+
+if after_first <= original
+  echoerr 'First expand failed. Original: ' . original . ' After: ' . after_first
+  cquit 1
+endif
+if after_second <= after_first
+  echoerr 'Second expand failed. After first: ' . after_first . ' After second: ' . after_second
+  cquit 1
+endif
+
+" Collapse first file — should not affect second
+call search('^M file\.txt')
+execute "normal ="
+let after_collapse_first = line('$')
+
+" Second file diff lines should still be present
+if !search('^M other\.txt')
+  echoerr 'other.txt disappeared after collapsing file.txt'
+  cquit 1
+endif
+" Check that diff lines still follow other.txt
+let lnum = line('.') + 1
+if getline(lnum) !~# '^[ @\+-]'
+  echoerr 'other.txt inline diff was lost when file.txt was collapsed'
+  cquit 1
+endif
+VIMSCRIPT
+then pass "= expands multiple files independently"
+else fail "= expands multiple files independently"
+fi
+
+cleanup
+
+# ── Test: = on non-file lines does not error ─────────────────────────────
+
+setup_jj_repo
+
+(
+  cd "$TEST_REPO"
+  jj new -m "modify file" 2>/dev/null
+  echo "added line" >> file.txt
+)
+
+if run_nvim_test_in "$TEST_REPO" <<'VIMSCRIPT'
+edit file.txt
+J
+
+" Move to a blank line if one exists and press =
+let blank_lnum = 0
+for lnum in range(1, line('$'))
+  if getline(lnum) ==# ''
+    let blank_lnum = lnum
+    break
+  endif
+endfor
+if blank_lnum > 0
+  call cursor(blank_lnum, 1)
+  let before = line('$')
+  execute "normal ="
+  let after = line('$')
+  " Blank lines should not trigger expansion
+  if after != before
+    echoerr '= on blank line changed buffer. Before: ' . before . ' After: ' . after
+    cquit 1
+  endif
+endif
+
+" Also press > and < on blank line — should be safe
+if blank_lnum > 0
+  call cursor(blank_lnum, 1)
+  execute "normal >"
+  call cursor(blank_lnum, 1)
+  execute "normal <"
+endif
+VIMSCRIPT
+then pass "= > < on blank line does not error"
+else fail "= > < on blank line does not error"
 fi
 
 cleanup
