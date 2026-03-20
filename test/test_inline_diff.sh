@@ -26,7 +26,7 @@ fi
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "modify file" 2>/dev/null
   echo "added line" >> file.txt
 )
@@ -62,7 +62,7 @@ cleanup
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "modify file" 2>/dev/null
   echo "added line" >> file.txt
 )
@@ -109,7 +109,7 @@ cleanup
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "modify file" 2>/dev/null
   echo "added line" >> file.txt
 )
@@ -145,7 +145,7 @@ cleanup
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "modify file" 2>/dev/null
   echo "added line" >> file.txt
 )
@@ -186,7 +186,7 @@ cleanup
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "modify file" 2>/dev/null
   echo "added line" >> file.txt
 )
@@ -233,7 +233,7 @@ cleanup
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "modify file" 2>/dev/null
   echo "added line" >> file.txt
 )
@@ -269,7 +269,7 @@ cleanup
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "modify file" 2>/dev/null
   echo "added line" >> file.txt
 )
@@ -327,7 +327,7 @@ cleanup
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "add new file" 2>/dev/null
   echo "brand new content" > newfile.txt
 )
@@ -346,30 +346,37 @@ let file_lnum = line('.')
 " Expand
 execute "normal ="
 
-" All diff lines should be additions (+ lines) since file is new
-let has_hunk = 0
-let has_minus = 0
-let lnum = file_lnum + 1
-while lnum <= line('$')
-  let l = getline(lnum)
-  if l =~# '^@@'
-    let has_hunk = 1
-  elseif l =~# '^-'
-    let has_minus = 1
-  elseif l !~# '^[ @\+-]'
-    break
-  endif
-  let lnum += 1
-endwhile
+  " All diff lines should be additions (+ lines) since file is new
+  let has_hunk = 0
+  let has_minus = 0
+  let has_plus = 0
+  let lnum = file_lnum + 1
+  while lnum <= line('$')
+    let l = getline(lnum)
+    if l =~# '^@@'
+      let has_hunk = 1
+    elseif l =~# '^+'
+      let has_plus = 1
+    elseif l =~# '^-'
+      let has_minus = 1
+    elseif l !~# '^[ @\+-]'
+      break
+    endif
+    let lnum += 1
+  endwhile
 
-if !has_hunk
-  echoerr 'No @@ hunk header in new file diff'
-  cquit 1
-endif
-if has_minus
-  echoerr 'New file diff should not contain - (removal) lines'
-  cquit 1
-endif
+  if !has_hunk
+    echoerr 'No @@ hunk header in new file diff'
+    cquit 1
+  endif
+  if has_minus
+    echoerr 'New file diff should not contain - (removal) lines'
+    cquit 1
+  endif
+  if !has_plus
+    echoerr 'New file diff should contain + (addition) lines'
+    cquit 1
+  endif
 VIMSCRIPT
 then pass "= on newly added file shows diff with only + lines"
 else fail "= on newly added file shows diff with only + lines"
@@ -382,7 +389,7 @@ cleanup
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "modify two files" 2>/dev/null
   echo "change A" >> file.txt
   echo "change B" >> other.txt
@@ -447,7 +454,7 @@ cleanup
 setup_jj_repo
 
 (
-  cd "$TEST_REPO"
+  cd "$TEST_REPO" || exit 1
   jj new -m "modify file" 2>/dev/null
   echo "added line" >> file.txt
 )
@@ -456,33 +463,30 @@ if run_nvim_test_in "$TEST_REPO" <<'VIMSCRIPT'
 edit file.txt
 J
 
-" Move to a blank line if one exists and press =
-let blank_lnum = 0
-for lnum in range(1, line('$'))
-  if getline(lnum) ==# ''
-    let blank_lnum = lnum
-    break
-  endif
-endfor
-if blank_lnum > 0
-  call cursor(blank_lnum, 1)
-  let before = line('$')
-  execute "normal ="
-  let after = line('$')
-  " Blank lines should not trigger expansion
-  if after != before
-    echoerr '= on blank line changed buffer. Before: ' . before . ' After: ' . after
+  " Move to a blank line if one exists and press =
+  let blank_lnum = 0
+  for lnum in range(1, line('$'))
+    if getline(lnum) ==# ''
+      let blank_lnum = lnum
+      break
+    endif
+  endfor
+  if blank_lnum == 0
+    echoerr 'No blank line found to validate non-file-line keymaps'
     cquit 1
   endif
-endif
 
-" Also press > and < on blank line — should be safe
-if blank_lnum > 0
-  call cursor(blank_lnum, 1)
-  execute "normal >"
-  call cursor(blank_lnum, 1)
-  execute "normal <"
-endif
+  " Validate =, >, < are all no-ops on blank line
+  let before = line('$')
+  for key in ['=', '>', '<']
+    call cursor(blank_lnum, 1)
+    execute 'normal ' . key
+    let after = line('$')
+    if after != before
+      echoerr key . ' on blank line changed buffer. Before: ' . before . ' After: ' . after
+      cquit 1
+    endif
+  endfor
 VIMSCRIPT
 then pass "= > < on blank line does not error"
 else fail "= > < on blank line does not error"
